@@ -24,7 +24,7 @@ chmod +x mac_therm_logger.sh
 # Press Ctrl+C when you're done. It auto-runs the parser.
 ```
 
-### Sample Log
+## 📝 Sample Log
 
 ```log
 === Sun Apr  6 20:50:47 CDT 2025 ===
