@@ -4,7 +4,7 @@ This is a simple, effective CLI tool to monitor and analyze your Mac's thermal p
 
 Perfect for diagnosing issues like `kernel_task` CPU spikes, thermal throttling, or sluggish performance under dev-heavy workflows (Docker, VSCode, Spotify, Chrome, etc.).
 
-** Pro-Tip: Take your mac to the Genius Bar and have them clean our your Mac's fans
+** Pro-Tip: Take your mac to the Genius Bar and have them clean our your mac's fans
 
 ## 🔧 What It Does
 - Logs thermal data using `pmset` and `top`
