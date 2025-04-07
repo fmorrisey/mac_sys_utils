@@ -8,9 +8,9 @@ import sys
 
 # Path to your therm log
 TODAY = datetime.now().strftime("%Y-%m-%d")
-# LOG_FILE = f'log/therm_log_{TODAY}.txt'
-LOG_FILE = sys.argv[1] if len(sys.argv) > 1 else f'log/therm_log_{TODAY}.txt'
-CSV_OUTPUT = "therm_log_summary.csv"
+# LOG_FILE = f'log/mac_therm_log_{TODAY}.log'
+LOG_FILE = sys.argv[1] if len(sys.argv) > 1 else f'log/mac_therm_log_{TODAY}.log'
+CSV_OUTPUT = "mac_therm_log_summary.csv"
 print(f"Processing log file: {LOG_FILE}")
 
 
@@ -70,11 +70,11 @@ print(f"Thermal or performance warnings: {len(warnings)}")
 for w_type, ts in warnings:
     print(f"⚠️  {w_type.title()} warning at {ts}")
 
-# Optional CSV export
-with open(CSV_OUTPUT, "w", newline="") as csvfile:
-    writer = csv.DictWriter(csvfile, fieldnames=["timestamp", "kernel_task_cpu", "thermal_warning", "performance_warning"])
-    writer.writeheader()
-    for entry in entries:
-        writer.writerow(entry)
+# # Optional CSV export
+# with open(CSV_OUTPUT, "w", newline="") as csvfile:
+#     writer = csv.DictWriter(csvfile, fieldnames=["timestamp", "kernel_task_cpu", "thermal_warning", "performance_warning"])
+#     writer.writeheader()
+#     for entry in entries:
+#         writer.writerow(entry)
 
-print(f"✅ CSV exported to: {CSV_OUTPUT}")
+# print(f"✅ CSV exported to: {CSV_OUTPUT}")

@@ -12,13 +12,28 @@ Perfect for diagnosing issues like `kernel_task` CPU spikes, thermal throttling,
 - Optional: exports to CSV for long-term tracking
 
 ## 📦 Requirements
-- macOS (tested on Intel MBP)
-- Python 3+
-- Bash
+![Shell Script](https://img.shields.io/badge/script-bash-blue)
+![Python 3](https://img.shields.io/badge/python-3.8%2B-yellow)
+![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
 
 ## 🚀 Quick Start
 
 ```bash
-chmod +x log_thermals.sh
-./log_thermals.sh
+chmod +x mac_therm_logger.sh
+./mac_therm_logger.sh
 # Press Ctrl+C when you're done. It auto-runs the parser.
+```
+
+### Sample Log
+
+```log
+=== Sun Apr  6 20:50:47 CDT 2025 ===
+Note: No thermal warning level has been recorded
+Note: No performance warning level has been recorded
+2025-04-06 20:50:47 -0500 CPU Power notify
+	CPU_Scheduler_Limit 	= 100
+	CPU_Available_CPUs 	= 12
+	CPU_Speed_Limit 	= 100
+0      kernel_task      0.0 
+-----------------------------
+```
