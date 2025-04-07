@@ -2,7 +2,7 @@
 
 A lightweight collection of command-line tools and scripts for monitoring, diagnosing, and optimizing macOS system performance — especially for Intel-based MacBooks under heavy development workloads.
 
-- [Therm_Logger](/therm_logger/README.md): Perfect for diagnosing issues like `kernel_task` CPU spikes, thermal throttling, or sluggish performance under dev-heavy workflows (Docker, VSCode, Spotify, Chrome, etc.).
+- [Therm_Logger](/mac_therm_logger/README.md): Perfect for diagnosing issues like `kernel_task` CPU spikes, thermal throttling, or sluggish performance under dev-heavy workflows (Docker, VSCode, Spotify, Chrome, etc.).
 
 ## ⚙️ Requirements
 
