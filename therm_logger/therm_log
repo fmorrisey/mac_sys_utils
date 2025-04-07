@@ -1,0 +1,47 @@
+#!/bin/bash
+# This script logs the thermal status of the system every minute.
+# It logs the output of `pmset -g therm` and the top 1 process by CPU usage.
+# It also logs the current date and time.
+# The output is saved to a file named therm_log.txt in the same directory as the script.
+# The script runs indefinitely until terminated by the user.
+# The script is intended to be run in the background, so it does not output anything to the terminal.
+
+# wrkSpc="$(cd "$(dirname "$0")"; pwd)"
+WRK_SPC="$(cd "$(dirname "$0")"; pwd)"
+LOG_FILE="$WRK_SPC/log/therm_log_$(date +%Y-%m-%d).txt"
+echo "Logging thermal status to $LOG_FILE"
+
+PYTHON_SCRIPT="process_therm_log.py"
+
+# Define the logging function
+log_loop() {
+  while true; do
+    echo "=== $(date) ===" >> "$LOG_FILE"
+    pmset -g therm >> "$LOG_FILE"
+    top -l 1 -stats pid,command,cpu -o cpu | grep kernel_task >> "$LOG_FILE"
+    echo "-----------------------------" >> "$LOG_FILE"
+    sleep 60
+  done
+}
+
+# Start logging in the background
+log_loop &
+LOOP_PID=$!
+
+# Trap Ctrl+C and other exits
+cleanup() {
+  echo ""
+  echo "🛑 Stopping thermal logging..."
+  kill "$LOOP_PID"
+  wait "$LOOP_PID" 2>/dev/null
+
+  echo "🔍 Running Python analysis..."
+  python3 "$PYTHON_SCRIPT" "$LOG_FILE"
+  echo "✅ Done!"
+  exit 0
+}
+
+trap cleanup SIGINT SIGTERM EXIT
+
+# Wait here so script doesn’t exit immediately
+wait "$LOOP_PID"
