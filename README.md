@@ -6,14 +6,14 @@ A lightweight collection of command-line tools and scripts for monitoring, diagn
 
 ## ⚙️ Requirements
 
-- macOS (tested on Intel MBP, Sonoma)
-- Python 3+
-- Bash shell
-- Optional: [Mac Fan Control](https://crystalidea.com/macs-fan-control) or [iStat Menus](https://bjango.com/mac/istatmenus/) for advanced fan/temp monitoring
+![Shell Script](https://img.shields.io/badge/script-bash-blue)
+![Python 3](https://img.shields.io/badge/python-3.8%2B-yellow)
+![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+
 
 ## 🛠️ Setup
 
 ```bash
 git clone https://github.com/yourusername/mac_sys_utils.git
 cd mac_sys_utils
-chmod +x log_thermals.sh
+chmod +x mac_therm_logger.sh
