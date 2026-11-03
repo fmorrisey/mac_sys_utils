@@ -155,9 +155,12 @@ STOP=0
 trap 'STOP=1' INT TERM
 while [ "$STOP" -eq 0 ]; do
   SAMPLES=$((SAMPLES + 1))
+  t0=$(date +%s)
   write_sample
   if [ "$MAX_SAMPLES" -gt 0 ] && [ "$SAMPLES" -ge "$MAX_SAMPLES" ]; then break; fi
-  sleep "$INTERVAL" & wait $! 2>/dev/null     # interruptible sleep: Ctrl+C returns immediately
+  # sleep for the remainder of the interval (sampling itself takes a few seconds)
+  rem=$(( INTERVAL - ($(date +%s) - t0) ))
+  [ "$rem" -gt 0 ] && { sleep "$rem" & wait $! 2>/dev/null; }   # interruptible: Ctrl+C returns immediately
 done
 trap - INT TERM
 
