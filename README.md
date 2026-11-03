@@ -1,8 +1,8 @@
 # 🖥️ mac_sys_utils
 
-A lightweight collection of command-line tools and scripts for monitoring, diagnosing, and optimizing macOS system performance — especially for Intel-based MacBooks under heavy development workloads.
+A lightweight collection of command-line tools and scripts for monitoring, diagnosing, and optimizing macOS system performance — on Apple Silicon (M1–M5) and Intel MacBooks, from dev-heavy workloads to Wine/GPTK gaming.
 
-- [Therm_Logger](/mac_therm_logger/README.md): Perfect for diagnosing issues like `kernel_task` CPU spikes, thermal throttling, or sluggish performance under dev-heavy workflows (Docker, VSCode, Spotify, Chrome, etc.).
+- [Therm_Logger](/mac_therm_logger/README.md): logs thermal pressure, fan RPM, die temperatures, clock speeds and power (Apple Silicon via `powermetrics`) or `CPU_Speed_Limit`/`kernel_task` (Intel), plus what was running — then summarizes every throttling episode. Perfect for "is it throttling, and why?"
 
 ## ⚙️ Requirements
 
@@ -14,6 +14,7 @@ A lightweight collection of command-line tools and scripts for monitoring, diagn
 ## 🛠️ Setup
 
 ```bash
-git clone https://github.com/yourusername/mac_sys_utils.git
+git clone https://github.com/fmorrisey/mac_sys_utils.git
 cd mac_sys_utils
-chmod +x mac_therm_logger.sh
+chmod +x mac_therm_logger/mac_therm_logger.sh
+./mac_therm_logger/mac_therm_logger.sh      # Apple Silicon asks for sudo once (powermetrics)
