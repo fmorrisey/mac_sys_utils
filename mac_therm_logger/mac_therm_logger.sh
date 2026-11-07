@@ -76,6 +76,12 @@ if $IS_APPLE_SILICON && $USE_SUDO && command -v powermetrics >/dev/null 2>&1; th
 elif $IS_APPLE_SILICON && ! $USE_SUDO; then
   echo "ℹ️  --no-sudo: temps / fans / pressure unavailable; logging pmset, load and top only."
 fi
+# --- macmon (temps + fans on recent macOS, where powermetrics dropped the smc sampler) ---
+USE_MACMON=false
+if $IS_APPLE_SILICON; then
+  if command -v macmon >/dev/null 2>&1; then USE_MACMON=true; echo "   🌡️  macmon: CPU/GPU temps + fan RPM"
+  else echo "   ℹ️  macmon not found — CPU temp / fan unavailable (brew install macmon)"; fi
+fi
 printf "\n    📌 Press Ctrl+C to stop and analyze.\n\n"
 
 # --- helpers --------------------------------------------------------------------
@@ -99,6 +105,17 @@ pm_sample() {   # the interesting powermetrics lines, prefixed "pm: "
     | grep -iE "pressure level|^ *Fan|temperature:|HW active frequency|^ *CPU Power|^ *GPU Power|^ *ANE Power|Combined Power" \
     | sed -E 's/^[[:space:]]+//; s/^/pm: /'
 }
+mm_sample() {   # temps + fans from macmon (no root), emitted in the same "pm: " shape the analyzer parses
+  macmon pipe -s 1 -i 500 2>/dev/null | head -1 | python3 -c '
+import sys, json
+try: d = json.loads(sys.stdin.readline())
+except Exception: sys.exit()
+t = d.get("temp") or {}
+if t.get("cpu_temp_avg") is not None: print("pm: CPU die temperature: %.1f C" % t["cpu_temp_avg"])
+if t.get("gpu_temp_avg") is not None: print("pm: GPU die temperature: %.1f C" % t["gpu_temp_avg"])
+for i, f in enumerate(d.get("fans") or []): print("pm: Fan %d: %d rpm" % (i, f.get("rpm", 0)))
+' 2>/dev/null
+}
 notify() { osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true; }
 proc_name() {   # friendly name for a PID: the Windows .exe for Wine processes, else the binary name
   local args exe comm
@@ -118,12 +135,13 @@ write_sample() {
   # second report of `top -l 2`: the first one always says 0.0% CPU for everything
   topout="$(top -l 2 -s 1 -stats pid,cpu,command -o cpu 2>/dev/null | awk '/^Processes:/{b++} b==2' | grep -E '^ *[0-9]+ ')"
   [ -n "$PM_SAMPLERS" ] && { sudo -n -v 2>/dev/null; pm="$(pm_sample)"; }
+  $USE_MACMON && pm="${pm:+$pm$'\n'}$(mm_sample)"
   {
     echo "=== $ts ==="
     echo "sys: chip=\"$CHIP\" arch=$ARCH macos=$MACOS lid=$(lid_state) power=\"$(power_state)\""
     echo "load: $(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | awk '{$1=$1};1')"
     pmset -g therm 2>/dev/null | sed 's/^/therm: /'
-    if [ -n "$PM_SAMPLERS" ]; then
+    if [ -n "$PM_SAMPLERS" ] || $USE_MACMON; then
       if [ -n "$pm" ]; then echo "$pm"; else echo "pm: unavailable (sudo ticket expired?)"; fi
     fi
     # legacy kernel_task line — same shape the Intel version wrote, so old parsers still work
@@ -144,7 +162,7 @@ write_sample() {
   fi
   pressure="$(echo "$pm" | sed -nE 's/.*pressure level: *([A-Za-z]+).*/\1/p' | head -1)"
   cputemp="$(echo "$pm" | sed -nE 's/^pm: CPU[^:]*temperature: *([0-9.]+).*/\1/p' | head -1)"
-  fan="$(echo "$pm" | sed -nE 's/^pm: Fan[^:]*: *([0-9.]+).*/\1/p' | head -1)"
+  fan="$(echo "$pm" | sed -nE 's/^pm: Fan[^:]*: *([0-9.]+).*/\1/p' | sort -n | tail -1)"
   case "$pressure" in Heavy|Trapping|Sleeping) notify "mac_therm_logger" "Thermal pressure: $pressure (CPU ${cputemp:-?} C)";; esac
   local el=$(( $(date +%s) - START_TS ))
   printf "\r    ⏱️  %02d:%02d:%02d | sample %d | %s | pressure %-8s | CPU %5s°C | fan %6s rpm   " \
