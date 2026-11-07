@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fmorrisey.wifi-autoswitch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/.local/bin/wifi-autoswitch</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/wifi-autoswitch.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/wifi-autoswitch.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Uncomment to pin specific wired interfaces instead of auto-discovering every wired port:
+        <key>WIFI_AUTOSWITCH_IFACES</key>
+        <string>en9</string>
+        -->
+        <key>WIFI_AUTOSWITCH_NOTIFY</key>
+        <string>1</string>
+        <key>WIFI_AUTOSWITCH_UP_GRACE</key>
+        <string>1</string>
+        <key>WIFI_AUTOSWITCH_DOWN_GRACE</key>
+        <string>6</string>
+    </dict>
+</dict>
+</plist>
