@@ -29,6 +29,9 @@
         -->
         <key>HDMI_AUDIO_STEREO_NOTIFY</key>
         <string>1</string>
+        <!-- Hand the default output back to a display endpoint that vanished and returned (1), or leave macOS's fallback alone (0). -->
+        <key>HDMI_AUDIO_STEREO_RESTORE_DEFAULT</key>
+        <string>1</string>
     </dict>
 </dict>
 </plist>

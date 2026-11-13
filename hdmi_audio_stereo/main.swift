@@ -15,6 +15,9 @@
 //   --device NAME                  act only on this device name (repeatable; also HDMI_AUDIO_STEREO_DEVICES=a,b)
 //
 // Env: HDMI_AUDIO_STEREO_NOTIFY=0 disables the macOS notification on each change.
+//      HDMI_AUDIO_STEREO_RESTORE_DEFAULT=0 stops it re-selecting a display endpoint as the
+//      default output after that endpoint vanished and came back (macOS falls back to the
+//      built-in speakers on a hot-plug blink and does not always hand the default back).
 
 import Foundation
 import CoreAudio
@@ -26,6 +29,7 @@ let env = ProcessInfo.processInfo.environment
 var targetChannels = UInt32(env["HDMI_AUDIO_STEREO_CHANNELS"] ?? "") ?? 2
 var onlyDevices: [String] = (env["HDMI_AUDIO_STEREO_DEVICES"] ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 let notifyEnabled = env["HDMI_AUDIO_STEREO_NOTIFY"] != "0"
+let restoreDefault = env["HDMI_AUDIO_STEREO_RESTORE_DEFAULT"] != "0"
 let recheckSeconds: TimeInterval = 60
 
 // MARK: - helpers
@@ -105,6 +109,14 @@ func outputDevices() -> [Dev] {
 func defaultOutput() -> AudioObjectID {
     getValue(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, AudioObjectID(0)) ?? 0
 }
+func systemOutput() -> AudioObjectID {
+    getValue(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultSystemOutputDevice, kAudioObjectPropertyScopeGlobal, AudioObjectID(0)) ?? 0
+}
+@discardableResult
+func setDefault(_ sel: AudioObjectPropertySelector, _ id: AudioObjectID) -> OSStatus {
+    var a = addr(sel); var v = id
+    return AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &a, 0, nil, UInt32(MemoryLayout<AudioObjectID>.size), &v)
+}
 
 /// Which devices this agent manages: display-audio transports by default, or the named ones.
 func isManaged(_ d: Dev) -> Bool {
@@ -182,12 +194,63 @@ final class Watcher: @unchecked Sendable {
     let q = DispatchQueue(label: "hdmi-audio-stereo")
     var hooked = Set<AudioObjectID>()
     var pending: DispatchWorkItem?
+    // default-output restore: remember which managed device was the default, and whether the
+    // fallback to the built-in speakers happened because that device had vanished.
+    var lastDefaultName: String?
+    var lastDefaultWasManaged = false
+    var lastDefaultWasSystemToo = false
+    var pendingRestore: String?
+    var pendingRestoreSystem = false
+
+    func noteDefault() {
+        let def = defaultOutput()
+        if let d = outputDevices().first(where: { $0.id == def }) {
+            lastDefaultName = d.name
+            lastDefaultWasManaged = isManaged(d)
+            lastDefaultWasSystemToo = systemOutput() == def
+        }
+    }
+
+    /// Runs immediately on the default-output notification (not debounced), so it still sees the
+    /// managed device as absent. A manual switch to the speakers while the TV is present never arms it.
+    func onDefaultOutputChanged() {
+        guard restoreDefault else { noteDefault(); return }
+        let devs = outputDevices()
+        let cur = devs.first(where: { $0.id == defaultOutput() })
+        if let c = cur, c.transport == "bltn", lastDefaultWasManaged, let name = lastDefaultName,
+           !devs.contains(where: { $0.name == name && isManaged($0) }) {
+            pendingRestore = name
+            pendingRestoreSystem = lastDefaultWasSystemToo
+            log("default output fell back to \(c.name) because \(name) vanished; will hand it back when \(name) returns")
+        }
+        noteDefault()
+    }
+
+    func restoreIfPossible() {
+        guard let name = pendingRestore else { return }
+        let devs = outputDevices()
+        guard let d = devs.first(where: { $0.name == name && isManaged($0) }) else { return }
+        let cur = devs.first(where: { $0.id == defaultOutput() })
+        if cur == nil || cur!.transport == "bltn" {
+            let st = setDefault(kAudioHardwarePropertyDefaultOutputDevice, d.id)
+            var st2: OSStatus = noErr
+            if pendingRestoreSystem { st2 = setDefault(kAudioHardwarePropertyDefaultSystemOutputDevice, d.id) }
+            log("restored default output to \(name) (status \(st)\(pendingRestoreSystem ? ", system output \(st2)" : ""))")
+            if st == noErr { notify(title: "Audio back on \(name)", body: "Default output restored after the display re-connected") }
+        }
+        pendingRestore = nil
+        noteDefault()
+    }
 
     func start() {
-        log("hdmi-audio-stereo starting: target=\(targetChannels)ch devices=" + (onlyDevices.isEmpty ? "all hdmi/dprt" : onlyDevices.joined(separator: ",")) + " notify=\(notifyEnabled)")
+        log("hdmi-audio-stereo starting: target=\(targetChannels)ch devices=" + (onlyDevices.isEmpty ? "all hdmi/dprt" : onlyDevices.joined(separator: ",")) + " notify=\(notifyEnabled) restore_default=\(restoreDefault)")
         fixNow(reason: "startup", verbose: true)
+        noteDefault()
         listen(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, "device list changed")
-        listen(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal, "default output changed")
+        var b = addr(kAudioHardwarePropertyDefaultOutputDevice)
+        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &b, q) { [self] _, _ in
+            onDefaultOutputChanged(); schedule("default output changed")
+        }
         hookDevices()
         // belt and braces: a quiet periodic re-check in case a notification is missed
         let t = DispatchSource.makeTimerSource(queue: q)
@@ -196,6 +259,7 @@ final class Watcher: @unchecked Sendable {
             let changed = applyFix(verbose: false)
             if !changed.isEmpty { announce(changed, reason: "periodic re-check") }
             hookDevices()
+            restoreIfPossible()
         }
         t.resume()
         timer = t
@@ -224,7 +288,7 @@ final class Watcher: @unchecked Sendable {
     /// Debounce: hot-plug fires a burst of notifications; act once, 1.5 s after the last one.
     func schedule(_ why: String) {
         pending?.cancel()
-        let w = DispatchWorkItem { [self] in fixNow(reason: why, verbose: false); hookDevices() }
+        let w = DispatchWorkItem { [self] in fixNow(reason: why, verbose: false); hookDevices(); restoreIfPossible() }
         pending = w
         q.asyncAfter(deadline: .now() + 1.5, execute: w)
     }

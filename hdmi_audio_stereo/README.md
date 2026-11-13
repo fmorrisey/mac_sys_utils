@@ -17,6 +17,11 @@ Windows games under Wine / Porting Kit / CrossOver on a Mac plugged into a TV.
   it sets the stream to the best stereo PCM format at the current sample rate (e.g. 2 ch 48 kHz
   24-bit) and tells you with a notification. Event-driven, no polling (a quiet 60-second re-check
   is the only timer), no sudo.
+- **Hands the default output back.** On a hot-plug blink macOS falls back to the built-in
+  speakers, and when the TV returns under a different EDID identity it does not always get the
+  default back. The agent notices that the fallback happened *because* the managed endpoint
+  vanished, and re-selects it when it reappears. A deliberate switch to the speakers while the TV
+  is present is never overridden.
 - **Reversible.** `hdmi-audio-stereo --once --channels 6` puts an endpoint back to 5.1 for the
   session; uninstalling leaves formats as they are.
 
@@ -68,6 +73,7 @@ Environment variables in the plist (`EnvironmentVariables`), or on the command l
 | `HDMI_AUDIO_STEREO_CHANNELS` | `2` | Target channel count (`--channels N` overrides) |
 | `HDMI_AUDIO_STEREO_DEVICES` | *(empty = every HDMI / DisplayPort output)* | Comma-separated device names to manage instead, e.g. `SAMSUNG` (`--device NAME` adds one) |
 | `HDMI_AUDIO_STEREO_NOTIFY` | `1` | `0` turns off the macOS notification |
+| `HDMI_AUDIO_STEREO_RESTORE_DEFAULT` | `1` | `0` stops it re-selecting a vanished-and-returned endpoint as the default output |
 
 USB, Thunderbolt and built-in devices are never touched unless you name them. (A USB interface
 such as a Scarlett 18i8 has the same 8-channel problem, but its channels are real outputs, so
