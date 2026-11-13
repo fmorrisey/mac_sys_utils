@@ -4,6 +4,7 @@ A lightweight collection of command-line tools and scripts for monitoring, diagn
 
 - [Therm_Logger](/mac_therm_logger/README.md): logs thermal pressure, fan RPM, die temperatures, clock speeds and power (Apple Silicon via `powermetrics`) or `CPU_Speed_Limit`/`kernel_task` (Intel), plus what was running — then summarizes every throttling episode. Perfect for "is it throttling, and why?"
 - [Wifi_Autoswitch](/wifi_autoswitch/README.md): turns Wi-Fi **off** the moment any wired Ethernet link (Thunderbolt dock, USB adapter) comes up with an IP, and back **on** when it goes away. Event-driven Swift LaunchAgent: no polling, no sudo, port-agnostic, and a manual Wi-Fi toggle sticks until the next plug/unplug.
+- [HDMI_Audio_Stereo](/hdmi_audio_stereo/README.md): keeps TV / monitor HDMI audio endpoints in **stereo** so Wine games (Unreal, Unity) mix 2.0 instead of 5.1/7.1 and dialogue stops vanishing. Event-driven Swift LaunchAgent that re-applies the stereo format every time the display is plugged in; reversible, no sudo.
 
 ## ⚙️ Requirements
 
@@ -21,4 +22,5 @@ cd mac_sys_utils
 chmod +x mac_therm_logger/mac_therm_logger.sh
 ./mac_therm_logger/mac_therm_logger.sh      # Apple Silicon asks for sudo once (powermetrics)
 ./wifi_autoswitch/install.sh                  # builds + installs the Wi-Fi/Ethernet LaunchAgent (needs Xcode CLT)
+./hdmi_audio_stereo/install.sh                # builds + installs the HDMI-audio-stereo LaunchAgent (needs Xcode CLT)
 ```

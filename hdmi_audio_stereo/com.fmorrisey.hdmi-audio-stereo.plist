@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fmorrisey.hdmi-audio-stereo</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/.local/bin/hdmi-audio-stereo</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/hdmi-audio-stereo.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/hdmi-audio-stereo.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Target channel count for display-audio endpoints (default 2 = stereo). -->
+        <key>HDMI_AUDIO_STEREO_CHANNELS</key>
+        <string>2</string>
+        <!-- Uncomment to manage only specific device names instead of every HDMI / DisplayPort output:
+        <key>HDMI_AUDIO_STEREO_DEVICES</key>
+        <string>SAMSUNG</string>
+        -->
+        <key>HDMI_AUDIO_STEREO_NOTIFY</key>
+        <string>1</string>
+    </dict>
+</dict>
+</plist>
