@@ -49,12 +49,18 @@ Useful variations:
 ./mac_therm_logger.sh -i 10 -n 60 -l halo-clamshell   # 10-minute run, 10 s samples, tagged log
 ./mac_therm_logger.sh -i 10 -n 60 -l halo-lid-open    # …then the A/B run
 ./mac_therm_logger.sh --no-sudo                       # no password prompt, no temps
+./mac_therm_logger.sh -q                              # no macOS notifications
 python3 analyze_therm_log.py --csv                    # newest log; or pass a path
 python3 analyze_therm_log.py log/mac_therm_log_2026-11-01_1302_halo-clamshell.log
 ```
 
 Each run gets its own timestamped file and the label lands in the name, so A/B comparisons (lid open vs closed, game A vs game B,
 stand vs desk) stay separate and the analyzer can be re-run on any of them later.
+
+🔔 Notifications are per **episode**, not per sample: one when thermal pressure first reaches
+Heavy (again if it escalates to Trapping/Sleeping), one when it drops back below Heavy, and one
+per burst of new Thermal Emergency / Clamshell Sleep entries in the power log. Pass `-q` to
+silence them; the log file always has the full record.
 
 ## 📝 Sample log (Apple Silicon)
 

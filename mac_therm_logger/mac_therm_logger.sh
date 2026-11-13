@@ -11,11 +11,16 @@
 #     "Clamshell Sleep" entries in the power log since the previous sample
 # Ctrl+C (or -n N samples) stops it and runs analyze_therm_log.py on the file.
 #
-# Usage: ./mac_therm_logger.sh [-i SECONDS] [-l LABEL] [-n SAMPLES] [--no-sudo]
+# Usage: ./mac_therm_logger.sh [-i SECONDS] [-l LABEL] [-n SAMPLES] [--no-sudo] [-q]
 #   -i SECONDS   sample interval (default 60; keep under 240 when using sudo)
 #   -l LABEL     tag the log filename, e.g. -l halo-clamshell  (great for A/B runs)
 #   -n SAMPLES   stop after N samples (default: run until Ctrl+C)
 #   --no-sudo    skip powermetrics: no temps/fans/pressure, but no password needed
+#   -q, --quiet  no macOS notifications (everything is still written to the log)
+#
+# Notifications: one when thermal pressure first reaches Heavy (and again if it
+# escalates to Trapping/Sleeping), one when it drops back below Heavy, and one per
+# burst of new Thermal Emergency / Clamshell Sleep entries in the power log.
 #
 # Apple Silicon note: temperatures, fan speed and thermal pressure are only exposed
 # through `powermetrics`, which needs root. The script asks for your password once
@@ -29,6 +34,7 @@ INTERVAL=60
 LABEL=""
 MAX_SAMPLES=0
 USE_SUDO=true
+NOTIFY=true
 
 usage() { sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; exit "${1:-0}"; }
 
@@ -38,6 +44,7 @@ while [ $# -gt 0 ]; do
     -l|--label)    LABEL="${2:?missing value for -l}";    shift 2 ;;
     -n|--samples)  MAX_SAMPLES="${2:?missing value for -n}"; shift 2 ;;
     --no-sudo)     USE_SUDO=false; shift ;;
+    -q|--quiet)    NOTIFY=false; shift ;;
     -h|--help)     usage 0 ;;
     *) echo "unknown option: $1"; usage 1 ;;
   esac
@@ -116,7 +123,20 @@ if t.get("gpu_temp_avg") is not None: print("pm: GPU die temperature: %.1f C" % 
 for i, f in enumerate(d.get("fans") or []): print("pm: Fan %d: %d rpm" % (i, f.get("rpm", 0)))
 ' 2>/dev/null
 }
-notify() { osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true; }
+notify() { $NOTIFY || return 0; osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true; }
+pressure_rank() { case "$1" in Moderate) echo 1;; Heavy) echo 2;; Trapping) echo 3;; Sleeping) echo 4;; *) echo 0;; esac; }
+PREV_RANK=0
+pressure_notify() {   # alert once per throttling episode, not once per sample: on reaching/escalating past Heavy, and on recovery
+  local pressure="$1" cputemp="$2" rank
+  [ -z "$pressure" ] && return 0            # no powermetrics this sample: keep the previous state
+  rank="$(pressure_rank "$pressure")"
+  if [ "$rank" -ge 2 ] && [ "$rank" -gt "$PREV_RANK" ]; then
+    notify "mac_therm_logger" "Thermal pressure: $pressure (CPU ${cputemp:-?} C)"
+  elif [ "$rank" -lt 2 ] && [ "$PREV_RANK" -ge 2 ]; then
+    notify "mac_therm_logger" "Thermal pressure back to $pressure (CPU ${cputemp:-?} C)"
+  fi
+  PREV_RANK="$rank"
+}
 proc_name() {   # friendly name for a PID: the Windows .exe for Wine processes, else the binary name
   local args exe comm
   args="$(ps -p "$1" -o args= 2>/dev/null)"
@@ -163,7 +183,7 @@ write_sample() {
   pressure="$(echo "$pm" | sed -nE 's/.*pressure level: *([A-Za-z]+).*/\1/p' | head -1)"
   cputemp="$(echo "$pm" | sed -nE 's/^pm: CPU[^:]*temperature: *([0-9.]+).*/\1/p' | head -1)"
   fan="$(echo "$pm" | sed -nE 's/^pm: Fan[^:]*: *([0-9.]+).*/\1/p' | sort -n | tail -1)"
-  case "$pressure" in Heavy|Trapping|Sleeping) notify "mac_therm_logger" "Thermal pressure: $pressure (CPU ${cputemp:-?} C)";; esac
+  pressure_notify "$pressure" "$cputemp"
   local el=$(( $(date +%s) - START_TS ))
   printf "\r    ⏱️  %02d:%02d:%02d | sample %d | %s | pressure %-8s | CPU %5s°C | fan %6s rpm   " \
     $((el/3600)) $((el%3600/60)) $((el%60)) "$SAMPLES" "${ts:11:8}" "${pressure:--}" "${cputemp:--}" "${fan:--}"
