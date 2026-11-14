@@ -20,9 +20,14 @@
     <string>__HOME__/Library/Logs/hdmi-audio-stereo.log</string>
     <key>EnvironmentVariables</key>
     <dict>
-        <!-- Target channel count for display-audio endpoints (default 2 = stereo). -->
+        <!-- Target channel count for display-audio endpoints: 2 for TV speakers, 6 for a 5.1 soundbar/AVR over eARC. -->
         <key>HDMI_AUDIO_STEREO_CHANNELS</key>
-        <string>2</string>
+        <string>6</string>
+        <!-- Speaker assignment per device channel (CoreAudio labels 1=L 2=R 3=C 4=LFE 5=Ls 6=Rs), applied whenever the
+             endpoint has that many channels. 1,2,4,3,5,6 is the HDMI wire order most TVs expect (LFE on 3, Center on 4);
+             it is what Audio MIDI Setup's "Configure Speakers" writes, but that only sticks per device identity. -->
+        <key>HDMI_AUDIO_STEREO_LAYOUT</key>
+        <string>1,2,4,3,5,6</string>
         <!-- Uncomment to manage only specific device names instead of every HDMI / DisplayPort output:
         <key>HDMI_AUDIO_STEREO_DEVICES</key>
         <string>SAMSUNG</string>

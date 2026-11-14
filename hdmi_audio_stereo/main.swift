@@ -1,4 +1,6 @@
-// hdmi-audio-stereo — keep HDMI / DisplayPort audio endpoints (TVs, monitors) in stereo.
+// hdmi-audio-stereo — keep HDMI / DisplayPort audio endpoints (TVs, monitors) in a consistent
+// channel count AND speaker assignment across hot-plugs (stereo for TV speakers, 5.1 for a
+// soundbar/AVR). The name stuck from its first job.
 //
 // Why: a TV or monitor that advertises 5.1 / 7.1 PCM over HDMI makes CoreAudio publish a
 // 6- or 8-channel output device. Wine's winecoreaudio builds the WASAPI mix format from that
@@ -12,6 +14,10 @@
 //   hdmi-audio-stereo --once       fix now and exit
 //   hdmi-audio-stereo --status     print every output device, its stream format, and what would change
 //   --channels N                   target channel count for this invocation (default 2; also HDMI_AUDIO_STEREO_CHANNELS)
+//   --layout L,L,...               persist the speaker assignment (CoreAudio channel labels per device
+//                                  channel: 1=L 2=R 3=C 4=LFE 5=Ls 6=Rs 7=Lc 8=Rc 9=Cs 10=Lsd 11=Rsd),
+//                                  e.g. --layout 1,2,4,3,5,6 = HDMI wire order (LFE on 3, Center on 4);
+//                                  --layout default clears it; --save-layout captures the device's current one
 //   --target N | --target default  persist a target for the RUNNING agent (stored in user preferences,
 //                                  picked up within seconds): e.g. `--target 6` for 5.1 to a soundbar tonight,
 //                                  `--target default` to go back to the plist/env setting
@@ -39,6 +45,72 @@ func prefsTarget() -> UInt32? {
     return nil
 }
 var targetChannels: UInt32 { prefsTarget() ?? baseTargetChannels }
+func parseLabels(_ str: String) -> [UInt32]? {
+    let parts = str.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    let nums = parts.compactMap { UInt32($0) }
+    return nums.count == parts.count && !nums.isEmpty ? nums : nil
+}
+var baseLayout: [UInt32]? = parseLabels(env["HDMI_AUDIO_STEREO_LAYOUT"] ?? "")
+func prefsLayout() -> [UInt32]? {
+    guard let v = CFPreferencesCopyAppValue("layout" as CFString, prefsDomain) as? String else { return nil }
+    return parseLabels(v)
+}
+/// Desired speaker assignment (labels per device channel); applied only when its length equals the
+/// device's channel count after the format fix.
+var desiredLayout: [UInt32]? { prefsLayout() ?? baseLayout }
+func setPrefsLayout(_ labels: [UInt32]?) {
+    CFPreferencesSetAppValue("layout" as CFString, labels.map { $0.map(String.init).joined(separator: ",") as CFString }, prefsDomain)
+    CFPreferencesAppSynchronize(prefsDomain)
+}
+let labelNames: [UInt32: String] = [1:"L",2:"R",3:"C",4:"LFE",5:"Ls",6:"Rs",7:"Lc",8:"Rc",9:"Cs",10:"Lsd",11:"Rsd",0:"-"]
+func describeLabels(_ l: [UInt32]) -> String { l.map { labelNames[$0] ?? "\($0)" }.joined(separator: " ") }
+
+/// Current preferred channel layout as labels per channel; [] when it is tag/bitmap based or unset.
+func currentLayoutLabels(_ dev: AudioObjectID) -> [UInt32] {
+    var a = addr(kAudioDevicePropertyPreferredChannelLayout, kAudioObjectPropertyScopeOutput); var size: UInt32 = 0
+    guard AudioObjectGetPropertyDataSize(dev, &a, 0, nil, &size) == noErr, size >= 12 else { return [] }
+    let raw = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: 8); defer { raw.deallocate() }
+    guard AudioObjectGetPropertyData(dev, &a, 0, nil, &size, raw) == noErr else { return [] }
+    let tag = raw.load(as: UInt32.self); let n = Int(raw.load(fromByteOffset: 8, as: UInt32.self))
+    guard tag == kAudioChannelLayoutTag_UseChannelDescriptions, 12 + n * 20 <= Int(size) else { return [] }
+    return (0..<n).map { raw.load(fromByteOffset: 12 + $0 * 20, as: UInt32.self) }
+}
+/// Write a preferred channel layout built from labels (same thing Audio MIDI Setup's "Configure Speakers" writes).
+func setLayout(_ dev: AudioObjectID, labels: [UInt32]) -> OSStatus {
+    let n = labels.count, size = 12 + n * 20
+    let raw = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: 8); defer { raw.deallocate() }
+    raw.initializeMemory(as: UInt8.self, repeating: 0, count: size)
+    raw.storeBytes(of: kAudioChannelLayoutTag_UseChannelDescriptions, toByteOffset: 0, as: UInt32.self)
+    raw.storeBytes(of: UInt32(n), toByteOffset: 8, as: UInt32.self)
+    for (i, l) in labels.enumerated() {
+        let o = 12 + i * 20
+        let az: Float32? = [1: -30, 2: 30, 3: 0, 5: -110, 6: 110, 7: -15, 8: 15, 9: 180, 10: -90, 11: 90][l]
+        raw.storeBytes(of: l, toByteOffset: o, as: UInt32.self)
+        raw.storeBytes(of: az == nil ? UInt32(0) : UInt32(2), toByteOffset: o + 4, as: UInt32.self)   // 2 = spherical coordinates
+        raw.storeBytes(of: az ?? 0, toByteOffset: o + 8, as: Float32.self)
+        raw.storeBytes(of: Float32(0), toByteOffset: o + 12, as: Float32.self)
+        raw.storeBytes(of: az == nil ? Float32(0) : Float32(1), toByteOffset: o + 16, as: Float32.self)
+    }
+    var a = addr(kAudioDevicePropertyPreferredChannelLayout, kAudioObjectPropertyScopeOutput)
+    return AudioObjectSetPropertyData(dev, &a, 0, nil, UInt32(size), raw)
+}
+func setStereoPair(_ dev: AudioObjectID, _ pair: [UInt32]) -> OSStatus {
+    var a = addr(kAudioDevicePropertyPreferredChannelsForStereo, kAudioObjectPropertyScopeOutput); var p = pair
+    return AudioObjectSetPropertyData(dev, &a, 0, nil, 8, &p)
+}
+/// Apply the desired speaker assignment to one device if it has that many channels and differs. Returns true if changed.
+func applyLayout(_ d: Dev, verbose: Bool) -> Bool {
+    guard let want = desiredLayout else { return false }
+    let ch = outputChannels(d.id)
+    guard ch == want.count else { if verbose { log("\(d.name): layout not applied (\(ch) ch, layout has \(want.count))") }; return false }
+    let cur = currentLayoutLabels(d.id)
+    if cur == want { if verbose { log("\(d.name): speaker layout already \(describeLabels(cur))") }; return false }
+    let st = setLayout(d.id, labels: want)
+    let st2 = setStereoPair(d.id, [1, 2])
+    let after = currentLayoutLabels(d.id)
+    log("\(d.name): speaker layout \(cur.isEmpty ? "unset" : describeLabels(cur)) -> \(describeLabels(want)) \(after == want ? "OK" : "FAILED status=\(st)") (stereo pair 1,2 status \(st2))")
+    return after == want
+}
 func setPrefsTarget(_ n: UInt32?) {
     CFPreferencesSetAppValue("channels" as CFString, n.map { $0 as CFNumber }, prefsDomain)
     CFPreferencesAppSynchronize(prefsDomain)
@@ -160,11 +232,12 @@ func stereoCandidate(for stream: AudioStreamID, current: AudioStreamBasicDescrip
 }
 
 /// Apply the target format to every managed device whose streams carry a different channel count
-/// (so `--once --channels 6` also restores multichannel). Returns the names changed.
+/// (so `--once --channels 6` also restores multichannel), then the speaker assignment. Returns the names changed.
 @discardableResult
 func applyFix(verbose: Bool) -> [String] {
     var changed: [String] = []
     for d in outputDevices() where isManaged(d) {
+        defer { if applyLayout(d, verbose: verbose) && !changed.contains(d.name) { changed.append(d.name) } }
         for s in outputStreams(d) {
             guard let cur = getValue(s, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
             if cur.mChannelsPerFrame == targetChannels {
@@ -195,6 +268,10 @@ func printStatus() {
         let flag = d.id == def ? "*" : " "
         let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : "ignored"
         print("\(flag) \(d.name)  [\(d.transport)]  \(d.channels) out ch  \(managed)  uid=\(d.uid)")
+        if isManaged(d) {
+            let cur = currentLayoutLabels(d.id)
+            print("      speaker layout: \(cur.isEmpty ? "unset/tag-based" : describeLabels(cur))" + (desiredLayout.map { "   wanted: \(describeLabels($0))" } ?? "   (no layout configured)"))
+        }
         for s in outputStreams(d) {
             let phys = getValue(s, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())
             let avail: [AudioStreamRangedDescription] = getArray(s, kAudioStreamPropertyAvailablePhysicalFormats)
@@ -260,7 +337,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     func start() {
-        log("hdmi-audio-stereo starting: target=\(targetChannels)ch\(prefsTarget() != nil ? " (runtime override)" : "") devices=" + (onlyDevices.isEmpty ? "all hdmi/dprt" : onlyDevices.joined(separator: ",")) + " notify=\(notifyEnabled) restore_default=\(restoreDefault)")
+        log("hdmi-audio-stereo starting: target=\(targetChannels)ch\(prefsTarget() != nil ? " (runtime override)" : "") layout=\(desiredLayout.map(describeLabels) ?? "none") devices=" + (onlyDevices.isEmpty ? "all hdmi/dprt" : onlyDevices.joined(separator: ",")) + " notify=\(notifyEnabled) restore_default=\(restoreDefault)")
         fixNow(reason: "startup", verbose: true)
         noteDefault()
         listen(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, "device list changed")
@@ -344,6 +421,18 @@ while !args.isEmpty {
     case "--channels":
         guard !args.isEmpty, let n = UInt32(args.removeFirst()), n >= 1 else { print("--channels needs a number"); exit(2) }
         baseTargetChannels = n; setPrefsTarget(nil)
+    case "--layout":
+        guard !args.isEmpty else { print("--layout needs labels like 1,2,4,3,5,6 or 'default'"); exit(2) }
+        let v = args.removeFirst()
+        if v == "default" || v == "reset" { setPrefsLayout(nil); mode = "once"; print("runtime layout cleared") }
+        else if let l = parseLabels(v) { setPrefsLayout(l); mode = "once"; print("runtime layout set to \(describeLabels(l)); the running agent follows it within ~15 s") }
+        else { print("--layout needs labels like 1,2,4,3,5,6"); exit(2) }
+    case "--save-layout":
+        let devs = outputDevices().filter { isManaged($0) }
+        guard let d = devs.first else { print("no managed device present"); exit(1) }
+        let cur = currentLayoutLabels(d.id)
+        guard !cur.isEmpty else { print("\(d.name) has no description-based layout to save (configure it in Audio MIDI Setup first)"); exit(1) }
+        setPrefsLayout(cur); print("saved \(d.name) layout \(describeLabels(cur)) as the runtime layout"); exit(0)
     case "--target":
         guard !args.isEmpty else { print("--target needs a number or 'default'"); exit(2) }
         let v = args.removeFirst()
@@ -354,7 +443,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --once | --target N|default] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --once | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }

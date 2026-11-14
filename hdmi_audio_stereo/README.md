@@ -1,17 +1,24 @@
 # 🔊 hdmi_audio_stereo
 
-Keeps HDMI / DisplayPort audio endpoints (TVs, monitors) in **stereo**, automatically, every time
-one is plugged in. Fixes the "surround channels are messed up / dialogue is missing" problem with
-Windows games under Wine / Porting Kit / CrossOver on a Mac plugged into a TV.
+Keeps HDMI / DisplayPort audio endpoints (TVs, monitors) in a **consistent channel count and speaker
+assignment**, automatically, every time one is plugged in: 5.1 with the right channel order for a
+soundbar / AVR over eARC, or plain stereo for TV speakers. Fixes the "surround channels are messed
+up / dialogue is missing" problem on a Mac plugged into a TV, with Wine / Porting Kit / CrossOver
+games or anything else. (The name is from its first job; it does both.)
 
 - **Why it happens.** A TV or monitor that advertises 5.1 / 7.1 PCM in its EDID makes CoreAudio
   publish a 6- or 8-channel output device. Wine's `winecoreaudio` builds the WASAPI mix format
   from that channel count, so Unreal and Unity games mix surround and put dialogue on a centre
   channel that the TV's stereo speakers never play. Music and effects (front L/R) still work,
   which is why it sounds "mostly fine but the voices are gone".
-- **Why Audio MIDI Setup doesn't stick.** coreaudiod remembers the chosen format *per device
-  UID*, and the same TV gets a different UID per port / connection variant, so the next plug-in
-  comes back as 5.1 again.
+- **Why Audio MIDI Setup doesn't stick.** coreaudiod remembers the chosen format *and the
+  "Configure Speakers" assignment per device UID*, and the same TV gets a different UID per port,
+  EDID variant or picture mode (one Samsung TV showed up under eight UIDs), so the next plug-in
+  comes back with the default format and no speaker assignment.
+- **Why the speaker assignment matters.** HDMI carries 5.1 PCM as L R **LFE C** Ls Rs. Without an
+  assignment macOS assumes L R **C LFE** Ls Rs, so dialogue lands in the subwoofer slot and the
+  bass in the centre: "the surround channels are messed up". `--layout 1,2,4,3,5,6` is that wire
+  order, and the agent re-applies it to every new identity.
 - **What this does.** A tiny Swift agent subscribes to CoreAudio's device-list, default-output and
   stream-format notifications. Whenever a display-audio endpoint appears or its format changes,
   it sets the stream to the best stereo PCM format at the current sample rate (e.g. 2 ch 48 kHz
@@ -49,8 +56,11 @@ seconds and you get a notification. Games launched after that mix 2.0.
 ```bash
 hdmi-audio-stereo --status                   # every output device, its stream format, what would change
 hdmi-audio-stereo --once                     # fix now and exit (no agent needed)
-hdmi-audio-stereo --target 6                 # surround night: the running agent now KEEPS the TV at 6 ch (soundbar via eARC)
-hdmi-audio-stereo --target default           # back to the stereo default
+hdmi-audio-stereo --target 2                 # TV-speakers night: keep the endpoint stereo
+hdmi-audio-stereo --target default           # back to the plist default (6 ch as shipped here)
+hdmi-audio-stereo --layout 1,2,4,3,5,6       # speaker assignment to enforce (labels per device channel)
+hdmi-audio-stereo --save-layout              # capture what you set in Audio MIDI Setup as the assignment to enforce
+hdmi-audio-stereo --layout default           # stop enforcing a layout
 tail -f ~/Library/Logs/hdmi-audio-stereo.log # every decision it makes
 ```
 
@@ -74,7 +84,8 @@ Environment variables in the plist (`EnvironmentVariables`), or on the command l
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `HDMI_AUDIO_STEREO_CHANNELS` | `2` | Target channel count (`--channels N` overrides) |
+| `HDMI_AUDIO_STEREO_CHANNELS` | `6` | Target channel count (`--target N` overrides at runtime, `--channels N` for one invocation) |
+| `HDMI_AUDIO_STEREO_LAYOUT` | `1,2,4,3,5,6` | Speaker assignment (CoreAudio channel labels per device channel: 1=L 2=R 3=C 4=LFE 5=Ls 6=Rs); applied when the endpoint has that many channels (`--layout` overrides at runtime) |
 | `HDMI_AUDIO_STEREO_DEVICES` | *(empty = every HDMI / DisplayPort output)* | Comma-separated device names to manage instead, e.g. `SAMSUNG` (`--device NAME` adds one) |
 | `HDMI_AUDIO_STEREO_NOTIFY` | `1` | `0` turns off the macOS notification |
 | `HDMI_AUDIO_STEREO_RESTORE_DEFAULT` | `1` | `0` stops it re-selecting a vanished-and-returned endpoint as the default output |
