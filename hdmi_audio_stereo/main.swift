@@ -98,17 +98,21 @@ func setStereoPair(_ dev: AudioObjectID, _ pair: [UInt32]) -> OSStatus {
     var a = addr(kAudioDevicePropertyPreferredChannelsForStereo, kAudioObjectPropertyScopeOutput); var p = pair
     return AudioObjectSetPropertyData(dev, &a, 0, nil, 8, &p)
 }
-/// Apply the desired speaker assignment to one device if it has that many channels and differs. Returns true if changed.
-func applyLayout(_ d: Dev, verbose: Bool) -> Bool {
+/// Apply the desired speaker assignment to one device if it has that many channels. With `force`
+/// it is written even when it reads back identical: after a hot-plug blink the device comes back
+/// with the right assignment stored, but clients that stayed attached (Wine's audio unit, for one)
+/// come back with their channels crossed until the property is written again, which is what
+/// re-doing "Configure Speakers" by hand used to fix. Returns true if written.
+func applyLayout(_ d: Dev, verbose: Bool, force: Bool = false) -> Bool {
     guard let want = desiredLayout else { return false }
     let ch = outputChannels(d.id)
     guard ch == want.count else { if verbose { log("\(d.name): layout not applied (\(ch) ch, layout has \(want.count))") }; return false }
     let cur = currentLayoutLabels(d.id)
-    if cur == want { if verbose { log("\(d.name): speaker layout already \(describeLabels(cur))") }; return false }
+    if cur == want && !force { if verbose { log("\(d.name): speaker layout already \(describeLabels(cur))") }; return false }
     let st = setLayout(d.id, labels: want)
     let st2 = setStereoPair(d.id, [1, 2])
     let after = currentLayoutLabels(d.id)
-    log("\(d.name): speaker layout \(cur.isEmpty ? "unset" : describeLabels(cur)) -> \(describeLabels(want)) \(after == want ? "OK" : "FAILED status=\(st)") (stereo pair 1,2 status \(st2))")
+    log("\(d.name): speaker layout \(cur.isEmpty ? "unset" : describeLabels(cur)) -> \(describeLabels(want))\(cur == want ? " (re-written to resync clients)" : "") \(after == want ? "OK" : "FAILED status=\(st)") (stereo pair 1,2 status \(st2))")
     return after == want
 }
 func setPrefsTarget(_ n: UInt32?) {
@@ -234,10 +238,10 @@ func stereoCandidate(for stream: AudioStreamID, current: AudioStreamBasicDescrip
 /// Apply the target format to every managed device whose streams carry a different channel count
 /// (so `--once --channels 6` also restores multichannel), then the speaker assignment. Returns the names changed.
 @discardableResult
-func applyFix(verbose: Bool) -> [String] {
+func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
     var changed: [String] = []
     for d in outputDevices() where isManaged(d) {
-        defer { if applyLayout(d, verbose: verbose) && !changed.contains(d.name) { changed.append(d.name) } }
+        defer { if applyLayout(d, verbose: verbose, force: forceLayout) && !changed.contains(d.name) { changed.append(d.name) } }
         for s in outputStreams(d) {
             guard let cur = getValue(s, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
             if cur.mChannelsPerFrame == targetChannels {
@@ -388,7 +392,7 @@ final class Watcher: @unchecked Sendable {
         let w = DispatchWorkItem { [self] in
             fixNow(reason: why, verbose: false); hookDevices(); restoreIfPossible()
             q.asyncAfter(deadline: .now() + 4.0) { [self] in
-                let changed = applyFix(verbose: false)
+                let changed = applyFix(verbose: false, forceLayout: true)
                 if !changed.isEmpty { announce(changed, reason: why + " (second pass)") }
                 hookDevices(); restoreIfPossible()
             }
@@ -398,7 +402,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     func fixNow(reason: String, verbose: Bool) {
-        let changed = applyFix(verbose: verbose)
+        let changed = applyFix(verbose: verbose, forceLayout: true)
         if !changed.isEmpty { announce(changed, reason: reason) }
         else if !verbose { log("\(reason): nothing to change") }
     }
@@ -452,7 +456,7 @@ while !args.isEmpty {
 switch mode {
 case "status": printStatus()
 case "once":
-    let changed = applyFix(verbose: true)
+    let changed = applyFix(verbose: true, forceLayout: true)
     log(changed.isEmpty ? "nothing to change" : "fixed: \(changed.joined(separator: ", ")) -> \(targetChannels) ch")
 default: Watcher().start()
 }

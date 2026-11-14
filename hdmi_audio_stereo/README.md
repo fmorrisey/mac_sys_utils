@@ -24,6 +24,7 @@ games or anything else. (The name is from its first job; it does both.)
   it sets the stream to the best stereo PCM format at the current sample rate (e.g. 2 ch 48 kHz
   24-bit) and tells you with a notification. Event-driven, no polling (a quiet 15-second re-check
   is the only timer), no sudo. Each event is checked twice, 1.5 s and 5.5 s after it, because a freshly plugged endpoint can appear before its streams report their real format.
+- **Re-writes the assignment after every blink.** Clients that stay attached across a hot-plug (Wine's audio unit, for one) come back with their channels crossed even though the device still reports the right assignment; writing it again makes CoreAudio tell them to reconfigure, which is what redoing "Configure Speakers" by hand used to fix.
 - **Hands the default output back.** On a hot-plug blink macOS falls back to the built-in
   speakers, and when the TV returns under a different EDID identity it does not always get the
   default back. The agent notices that the fallback happened *because* the managed endpoint
