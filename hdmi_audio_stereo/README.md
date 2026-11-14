@@ -49,10 +49,14 @@ seconds and you get a notification. Games launched after that mix 2.0.
 ```bash
 hdmi-audio-stereo --status                   # every output device, its stream format, what would change
 hdmi-audio-stereo --once                     # fix now and exit (no agent needed)
-hdmi-audio-stereo --once --channels 6        # back to 5.1 on purpose (movies on a real surround rig)
+hdmi-audio-stereo --target 6                 # surround night: the running agent now KEEPS the TV at 6 ch (soundbar via eARC)
+hdmi-audio-stereo --target default           # back to the stereo default
 tail -f ~/Library/Logs/hdmi-audio-stereo.log # every decision it makes
 ```
 
+> `--target` is remembered in your user preferences and picked up by the running agent within
+> seconds, so no reinstall or restart is needed to switch between stereo and surround.
+>
 > A game that is already running keeps the mix format it started with. Launch (or relaunch)
 > the game after the endpoint is stereo. Changing the format also makes coreaudiod re-publish
 > the device, and macOS may pick it as the default output again at that moment.

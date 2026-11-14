@@ -11,7 +11,10 @@
 //   hdmi-audio-stereo              run as the LaunchAgent (watch + fix forever)
 //   hdmi-audio-stereo --once       fix now and exit
 //   hdmi-audio-stereo --status     print every output device, its stream format, and what would change
-//   --channels N                   target channel count (default 2; also HDMI_AUDIO_STEREO_CHANNELS)
+//   --channels N                   target channel count for this invocation (default 2; also HDMI_AUDIO_STEREO_CHANNELS)
+//   --target N | --target default  persist a target for the RUNNING agent (stored in user preferences,
+//                                  picked up within seconds): e.g. `--target 6` for 5.1 to a soundbar tonight,
+//                                  `--target default` to go back to the plist/env setting
 //   --device NAME                  act only on this device name (repeatable; also HDMI_AUDIO_STEREO_DEVICES=a,b)
 //
 // Env: HDMI_AUDIO_STEREO_NOTIFY=0 disables the macOS notification on each change.
@@ -26,7 +29,20 @@ import AudioToolbox
 // MARK: - config
 
 let env = ProcessInfo.processInfo.environment
-var targetChannels = UInt32(env["HDMI_AUDIO_STEREO_CHANNELS"] ?? "") ?? 2
+var baseTargetChannels = UInt32(env["HDMI_AUDIO_STEREO_CHANNELS"] ?? "") ?? 2
+let prefsDomain = "com.fmorrisey.hdmi-audio-stereo" as CFString
+/// A persisted override set with `--target N`; read live so the running agent follows it.
+func prefsTarget() -> UInt32? {
+    guard let v = CFPreferencesCopyAppValue("channels" as CFString, prefsDomain) else { return nil }
+    if let n = v as? Int, n > 0 { return UInt32(n) }
+    if let str = v as? String, let n = UInt32(str), n > 0 { return n }
+    return nil
+}
+var targetChannels: UInt32 { prefsTarget() ?? baseTargetChannels }
+func setPrefsTarget(_ n: UInt32?) {
+    CFPreferencesSetAppValue("channels" as CFString, n.map { $0 as CFNumber }, prefsDomain)
+    CFPreferencesAppSynchronize(prefsDomain)
+}
 var onlyDevices: [String] = (env["HDMI_AUDIO_STEREO_DEVICES"] ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 let notifyEnabled = env["HDMI_AUDIO_STEREO_NOTIFY"] != "0"
 let restoreDefault = env["HDMI_AUDIO_STEREO_RESTORE_DEFAULT"] != "0"
@@ -173,7 +189,8 @@ func applyFix(verbose: Bool) -> [String] {
 
 func printStatus() {
     let def = defaultOutput()
-    print("target: \(targetChannels) ch on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled))")
+    let src = prefsTarget() != nil ? "runtime override via --target" : "plist/env default"
+    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled))")
     for d in outputDevices() {
         let flag = d.id == def ? "*" : " "
         let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : "ignored"
@@ -243,7 +260,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     func start() {
-        log("hdmi-audio-stereo starting: target=\(targetChannels)ch devices=" + (onlyDevices.isEmpty ? "all hdmi/dprt" : onlyDevices.joined(separator: ",")) + " notify=\(notifyEnabled) restore_default=\(restoreDefault)")
+        log("hdmi-audio-stereo starting: target=\(targetChannels)ch\(prefsTarget() != nil ? " (runtime override)" : "") devices=" + (onlyDevices.isEmpty ? "all hdmi/dprt" : onlyDevices.joined(separator: ",")) + " notify=\(notifyEnabled) restore_default=\(restoreDefault)")
         fixNow(reason: "startup", verbose: true)
         noteDefault()
         listen(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, "device list changed")
@@ -326,12 +343,18 @@ while !args.isEmpty {
     case "--once": mode = "once"
     case "--channels":
         guard !args.isEmpty, let n = UInt32(args.removeFirst()), n >= 1 else { print("--channels needs a number"); exit(2) }
-        targetChannels = n
+        baseTargetChannels = n; setPrefsTarget(nil)
+    case "--target":
+        guard !args.isEmpty else { print("--target needs a number or 'default'"); exit(2) }
+        let v = args.removeFirst()
+        if v == "default" || v == "reset" { setPrefsTarget(nil); mode = "once"; print("runtime target cleared; back to \(baseTargetChannels) ch (plist/env)") }
+        else if let n = UInt32(v), n >= 1 { setPrefsTarget(n); mode = "once"; print("runtime target set to \(n) ch; the running agent follows it within ~15 s") }
+        else { print("--target needs a number or 'default'"); exit(2) }
     case "--device":
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --once] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --once | --target N|default] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
