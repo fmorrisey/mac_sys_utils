@@ -15,8 +15,8 @@ Windows games under Wine / Porting Kit / CrossOver on a Mac plugged into a TV.
 - **What this does.** A tiny Swift agent subscribes to CoreAudio's device-list, default-output and
   stream-format notifications. Whenever a display-audio endpoint appears or its format changes,
   it sets the stream to the best stereo PCM format at the current sample rate (e.g. 2 ch 48 kHz
-  24-bit) and tells you with a notification. Event-driven, no polling (a quiet 60-second re-check
-  is the only timer), no sudo.
+  24-bit) and tells you with a notification. Event-driven, no polling (a quiet 15-second re-check
+  is the only timer), no sudo. Each event is checked twice, 1.5 s and 5.5 s after it, because a freshly plugged endpoint can appear before its streams report their real format.
 - **Hands the default output back.** On a hot-plug blink macOS falls back to the built-in
   speakers, and when the TV returns under a different EDID identity it does not always get the
   default back. The agent notices that the fallback happened *because* the managed endpoint

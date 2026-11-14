@@ -30,7 +30,7 @@ var targetChannels = UInt32(env["HDMI_AUDIO_STEREO_CHANNELS"] ?? "") ?? 2
 var onlyDevices: [String] = (env["HDMI_AUDIO_STEREO_DEVICES"] ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 let notifyEnabled = env["HDMI_AUDIO_STEREO_NOTIFY"] != "0"
 let restoreDefault = env["HDMI_AUDIO_STEREO_RESTORE_DEFAULT"] != "0"
-let recheckSeconds: TimeInterval = 60
+let recheckSeconds: TimeInterval = 15
 
 // MARK: - helpers
 
@@ -285,10 +285,20 @@ final class Watcher: @unchecked Sendable {
         }
     }
 
-    /// Debounce: hot-plug fires a burst of notifications; act once, 1.5 s after the last one.
+    /// Debounce: hot-plug fires a burst of notifications; act once, 1.5 s after the last one,
+    /// then once more 4 s later because a freshly plugged endpoint can be listed before its
+    /// streams report their real format (seen 2026-11-13: the first pass found nothing to do,
+    /// the 60 s re-check then found 6 ch).
     func schedule(_ why: String) {
         pending?.cancel()
-        let w = DispatchWorkItem { [self] in fixNow(reason: why, verbose: false); hookDevices(); restoreIfPossible() }
+        let w = DispatchWorkItem { [self] in
+            fixNow(reason: why, verbose: false); hookDevices(); restoreIfPossible()
+            q.asyncAfter(deadline: .now() + 4.0) { [self] in
+                let changed = applyFix(verbose: false)
+                if !changed.isEmpty { announce(changed, reason: why + " (second pass)") }
+                hookDevices(); restoreIfPossible()
+            }
+        }
         pending = w
         q.asyncAfter(deadline: .now() + 1.5, execute: w)
     }
