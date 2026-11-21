@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.fmorrisey.display-mode</string>
+    <key>ProgramArguments</key>
+    <array><string>__HOME__/.local/bin/display-mode</string><string>--watch</string></array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- first match the display offers wins; add "hidpi" for a scaled mode, e.g. 2560x1440@100hidpi -->
+        <key>DISPLAY_MODE_PREFER</key><string>2560x1440@120,2560x1440@100,1920x1080@120,2560x1440@60</string>
+        <!-- only touch displays from this EDID vendor (0x4c2d = Samsung); remove to manage any external display -->
+        <key>DISPLAY_MODE_VENDOR</key><string>0x4c2d</string>
+        <key>DISPLAY_MODE_NOTIFY</key><string>1</string>
+        <!-- do not switch while a Wine game is running (it would lose its audio); 0 to switch regardless -->
+        <key>DISPLAY_MODE_GAME_GUARD</key><string>1</string>
+    </dict>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ProcessType</key><string>Interactive</string>
+    <key>StandardOutPath</key><string>__HOME__/Library/Logs/display-mode.log</string>
+    <key>StandardErrorPath</key><string>__HOME__/Library/Logs/display-mode.log</string>
+</dict>
+</plist>
