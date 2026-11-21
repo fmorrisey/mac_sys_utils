@@ -29,6 +29,7 @@
 //      built-in speakers on a hot-plug blink and does not always hand the default back).
 
 import Foundation
+import Darwin
 import CoreAudio
 import AudioToolbox
 
@@ -123,6 +124,7 @@ var onlyDevices: [String] = (env["HDMI_AUDIO_STEREO_DEVICES"] ?? "").split(separ
 let notifyEnabled = env["HDMI_AUDIO_STEREO_NOTIFY"] != "0"
 let restoreDefault = env["HDMI_AUDIO_STEREO_RESTORE_DEFAULT"] != "0"
 let recheckSeconds: TimeInterval = 15
+let clientPollSeconds: TimeInterval = 3   // how often to look for new audio clients
 
 // MARK: - helpers
 
@@ -288,6 +290,35 @@ func printStatus() {
 
 // MARK: - watch loop
 
+
+// MARK: - audio clients (macOS 14+ process objects)
+// A Wine game that opens its stream after the TV has settled still plays with crossed channels until the
+// preferred layout is written again (seen with Halo 2026-11-13/14 and Skyrim 2026-11-14). So: watch which
+// processes are producing output on a managed device and re-write the layout whenever a new one appears.
+func cc(_ s: String) -> UInt32 { s.utf8.reduce(0) { $0 << 8 | UInt32($1) } }
+let selProcessObjectList = AudioObjectPropertySelector(cc("prs#"))   // kAudioHardwarePropertyProcessObjectList
+let selProcIsRunningOutput = AudioObjectPropertySelector(cc("piro")) // kAudioProcessPropertyIsRunningOutput
+let selProcDevices = AudioObjectPropertySelector(cc("pdv#"))         // kAudioProcessPropertyDevices
+let selProcPID = AudioObjectPropertySelector(cc("ppid"))             // kAudioProcessPropertyPID
+
+func runningOutputPIDs(on dev: AudioObjectID) -> Set<pid_t> {
+    let procs: [AudioObjectID] = getArray(AudioObjectID(kAudioObjectSystemObject), selProcessObjectList)
+    var out = Set<pid_t>()
+    for p in procs {
+        guard (getValue(p, selProcIsRunningOutput, kAudioObjectPropertyScopeGlobal, UInt32(0)) ?? 0) != 0 else { continue }
+        let devs: [AudioObjectID] = getArray(p, selProcDevices, kAudioObjectPropertyScopeOutput)
+        guard devs.contains(dev) else { continue }
+        if let pid = getValue(p, selProcPID, kAudioObjectPropertyScopeGlobal, pid_t(0)), pid > 0 { out.insert(pid) }
+    }
+    return out
+}
+
+func procName(_ pid: pid_t) -> String {
+    var buf = [CChar](repeating: 0, count: 256)
+    let n = proc_name(pid, &buf, UInt32(buf.count))
+    return n > 0 ? String(cString: buf) : "pid \(pid)"
+}
+
 final class Watcher: @unchecked Sendable {
     let q = DispatchQueue(label: "hdmi-audio-stereo")
     var hooked = Set<AudioObjectID>()
@@ -299,6 +330,27 @@ final class Watcher: @unchecked Sendable {
     var lastDefaultWasSystemToo = false
     var pendingRestore: String?
     var pendingRestoreSystem = false
+    var lastClients = [AudioObjectID: Set<pid_t>]()
+    var lastClientRewrite = Date.distantPast
+
+    /// Every few seconds: did a new process start producing output on a managed device? Then the
+    /// layout gets written again so that client maps its channels onto the right speakers.
+    func pollClients() {
+        var newcomers: [String] = []
+        for d in outputDevices() where isManaged(d) {
+            let cur = runningOutputPIDs(on: d.id)
+            if let prev = lastClients[d.id] {
+                for pid in cur.subtracting(prev) { newcomers.append("\(procName(pid)) [\(pid)] on \(d.name)") }
+            }
+            lastClients[d.id] = cur
+        }
+        guard !newcomers.isEmpty else { return }
+        log("new audio client: " + newcomers.joined(separator: ", "))
+        guard Date().timeIntervalSince(lastClientRewrite) > 5 else { return }
+        lastClientRewrite = Date()
+        _ = applyFix(verbose: false, forceLayout: true)
+        q.asyncAfter(deadline: .now() + 3.0) { [self] in _ = applyFix(verbose: false, forceLayout: true) }
+    }
 
     func noteDefault() {
         let def = defaultOutput()
@@ -361,9 +413,15 @@ final class Watcher: @unchecked Sendable {
         }
         t.resume()
         timer = t
+        let c = DispatchSource.makeTimerSource(queue: q)
+        c.schedule(deadline: .now() + 2.0, repeating: clientPollSeconds)
+        c.setEventHandler { [self] in pollClients() }
+        c.resume()
+        clientTimer = c
         CFRunLoopRun()
     }
     var timer: DispatchSourceTimer?
+    var clientTimer: DispatchSourceTimer?
 
     func listen(_ obj: AudioObjectID, _ sel: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope, _ why: String) {
         var a = addr(sel, scope)
@@ -409,7 +467,7 @@ final class Watcher: @unchecked Sendable {
 
     func announce(_ names: [String], reason: String) {
         log("fixed (\(reason)): \(names.joined(separator: ", ")) -> \(targetChannels) ch")
-        notify(title: "HDMI audio set to stereo", body: names.joined(separator: ", "))
+        notify(title: "HDMI audio set to \(targetChannels) ch", body: names.joined(separator: ", "))
     }
 }
 
@@ -421,6 +479,7 @@ while !args.isEmpty {
     let a = args.removeFirst()
     switch a {
     case "--status": mode = "status"
+    case "--clients": mode = "clients"
     case "--once": mode = "once"
     case "--channels":
         guard !args.isEmpty, let n = UInt32(args.removeFirst()), n >= 1 else { print("--channels needs a number"); exit(2) }
@@ -447,7 +506,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --once | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
@@ -455,6 +514,11 @@ while !args.isEmpty {
 
 switch mode {
 case "status": printStatus()
+case "clients":
+    for d in outputDevices() where isManaged(d) {
+        let pids = runningOutputPIDs(on: d.id).sorted()
+        print("\(d.name): " + (pids.isEmpty ? "no process is producing output" : pids.map { "\(procName($0)) [\($0)]" }.joined(separator: ", ")))
+    }
 case "once":
     let changed = applyFix(verbose: true, forceLayout: true)
     log(changed.isEmpty ? "nothing to change" : "fixed: \(changed.joined(separator: ", ")) -> \(targetChannels) ch")

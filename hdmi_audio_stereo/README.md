@@ -113,3 +113,14 @@ the right fix there is a mixer downmix, not a format change.)
 ```bash
 ./hdmi_audio_stereo/uninstall.sh
 ```
+
+## New audio clients get a re-write too
+
+A Wine game that opens its audio stream after the TV has settled still comes up
+with crossed channels (dialogue in the sub) until the preferred layout is written
+again. Seen with Halo on 2026-11-13/14 and Skyrim on 2026-11-14, cured both times
+by a manual `--once`. The agent therefore polls (every 3 s) which processes are
+producing output on each managed device, using the macOS 14+ process objects, and
+re-writes the layout when a new one appears (plus a second pass 3 s later). Logged
+as `new audio client: <name> [pid] on <device>`. `hdmi-audio-stereo --clients`
+prints who is playing right now.
