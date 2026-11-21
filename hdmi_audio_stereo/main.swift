@@ -105,7 +105,7 @@ func setStereoPair(_ dev: AudioObjectID, _ pair: [UInt32]) -> OSStatus {
 /// come back with their channels crossed until the property is written again, which is what
 /// re-doing "Configure Speakers" by hand used to fix. Returns true if written.
 func applyLayout(_ d: Dev, verbose: Bool, force: Bool = false) -> Bool {
-    guard let want = desiredLayout else { return false }
+    guard let want = (isAggregate(d) ? desiredAggregateLayout : desiredLayout) else { return false }
     let ch = outputChannels(d.id)
     guard ch == want.count else { if verbose { log("\(d.name): layout not applied (\(ch) ch, layout has \(want.count))") }; return false }
     let cur = currentLayoutLabels(d.id)
@@ -280,7 +280,8 @@ func printStatus() {
         print("\(flag) \(d.name)  [\(d.transport)]  \(d.channels) out ch  \(managed)  uid=\(d.uid)")
         if isManaged(d) || isAggregate(d) {
             let cur = currentLayoutLabels(d.id)
-            print("      speaker layout: \(cur.isEmpty ? "unset/tag-based" : describeLabels(cur))" + (desiredLayout.map { "   wanted: \(describeLabels($0))" } ?? "   (no layout configured)"))
+            let want = isAggregate(d) ? desiredAggregateLayout : desiredLayout
+            print("      speaker layout: \(cur.isEmpty ? "unset/tag-based" : describeLabels(cur))" + (want.map { "   wanted: \(describeLabels($0))" } ?? "   (no layout configured)"))
         }
         for s in outputStreams(d) {
             let phys = getValue(s, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())
@@ -311,6 +312,16 @@ func setPrefsAggregate(_ on: Bool?) {
     CFPreferencesAppSynchronize(prefsDomain)
 }
 func isAggregate(_ d: Dev) -> Bool { d.uid == aggUID }
+func prefsAggregateLayout() -> [UInt32]? {
+    guard let v = CFPreferencesCopyAppValue("aggregate_layout" as CFString, prefsDomain) as? String else { return nil }
+    return parseLabels(v)
+}
+func setPrefsAggregateLayout(_ labels: [UInt32]?) {
+    CFPreferencesSetAppValue("aggregate_layout" as CFString, labels.map { $0.map(String.init).joined(separator: ",") as CFString }, prefsDomain)
+    CFPreferencesAppSynchronize(prefsDomain)
+}
+/// Labels written onto the aggregate; normally the same as the endpoint's, overridable for A/B tests by ear.
+var desiredAggregateLayout: [UInt32]? { prefsAggregateLayout() ?? parseLabels(env["HDMI_AUDIO_STEREO_AGGREGATE_LAYOUT"] ?? "") ?? desiredLayout }
 /// Devices whose clients and layout we care about: the real HDMI endpoints plus the aggregate in front of them.
 func watched() -> [Dev] { outputDevices().filter { isManaged($0) || (aggEnabled && isAggregate($0)) } }
 
@@ -570,6 +581,12 @@ while !args.isEmpty {
     switch a {
     case "--status": mode = "status"
     case "--clients": mode = "clients"
+    case "--aggregate-layout":
+        guard !args.isEmpty else { print("--aggregate-layout needs labels like 1,2,3,4,5,6 or 'default'"); exit(2) }
+        let v = args.removeFirst()
+        if v == "default" || v == "reset" { setPrefsAggregateLayout(nil); mode = "once"; print("aggregate layout follows the endpoint layout again") }
+        else if let l = parseLabels(v) { setPrefsAggregateLayout(l); mode = "once"; print("aggregate layout set to \(describeLabels(l)); written now and kept by the agent") }
+        else { print("bad labels"); exit(2) }
     case "--aggregate":
         guard !args.isEmpty else { print("usage: --aggregate on|off"); exit(2) }
         let v = args.removeFirst().lowercased()
@@ -602,7 +619,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --aggregate on|off | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --aggregate on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
