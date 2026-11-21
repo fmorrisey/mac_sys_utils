@@ -406,7 +406,8 @@ final class Watcher: @unchecked Sendable {
         let t = DispatchSource.makeTimerSource(queue: q)
         t.schedule(deadline: .now() + recheckSeconds, repeating: recheckSeconds)
         t.setEventHandler { [self] in
-            let changed = applyFix(verbose: false)
+            let gameOn = outputDevices().contains { d in isManaged(d) && runningOutputPIDs(on: d.id).contains { procName($0).lowercased().hasSuffix(".exe") } }
+            let changed = applyFix(verbose: false, forceLayout: gameOn)
             if !changed.isEmpty { announce(changed, reason: "periodic re-check") }
             hookDevices()
             restoreIfPossible()
@@ -433,6 +434,7 @@ final class Watcher: @unchecked Sendable {
             if !hooked.contains(d.id) {
                 hooked.insert(d.id)
                 listen(d.id, kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeOutput, "\(d.name) stream configuration changed")
+                listen(d.id, kAudioDevicePropertyDeviceIsRunning, kAudioObjectPropertyScopeGlobal, "\(d.name) IO started/stopped")
             }
             for s in outputStreams(d) where !hooked.contains(s) {
                 hooked.insert(s)
