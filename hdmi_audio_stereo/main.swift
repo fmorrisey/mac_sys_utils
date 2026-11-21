@@ -111,9 +111,10 @@ func applyLayout(_ d: Dev, verbose: Bool, force: Bool = false) -> Bool {
     let cur = currentLayoutLabels(d.id)
     if cur == want && !force { if verbose { log("\(d.name): speaker layout already \(describeLabels(cur))") }; return false }
     let st = setLayout(d.id, labels: want)
-    let st2 = setStereoPair(d.id, [1, 2])
+    let li = want.firstIndex(of: 1).map { UInt32($0 + 1) } ?? 1, ri = want.firstIndex(of: 2).map { UInt32($0 + 1) } ?? 2
+    let st2 = setStereoPair(d.id, [li, ri])
     let after = currentLayoutLabels(d.id)
-    log("\(d.name): speaker layout \(cur.isEmpty ? "unset" : describeLabels(cur)) -> \(describeLabels(want))\(cur == want ? " (re-written to resync clients)" : "") \(after == want ? "OK" : "FAILED status=\(st)") (stereo pair 1,2 status \(st2))")
+    log("\(d.name): speaker layout \(cur.isEmpty ? "unset" : describeLabels(cur)) -> \(describeLabels(want))\(cur == want ? " (re-written to resync clients)" : "") \(after == want ? "OK" : "FAILED status=\(st)") (stereo pair \(li),\(ri) status \(st2))")
     return after == want
 }
 func setPrefsTarget(_ n: UInt32?) {
@@ -239,6 +240,7 @@ func stereoCandidate(for stream: AudioStreamID, current: AudioStreamBasicDescrip
 
 /// Apply the target format to every managed device whose streams carry a different channel count
 /// (so `--once --channels 6` also restores multichannel), then the speaker assignment. Returns the names changed.
+var noFormatLogged = Set<String>()
 @discardableResult
 func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
     var changed: [String] = []
@@ -255,7 +257,10 @@ func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
                 continue
             }
             guard var want = stereoCandidate(for: s, current: cur, channels: targetChannels) else {
-                log("\(d.name): no \(targetChannels)-ch PCM format at \(Int(cur.mSampleRate)) Hz offered; leaving \(describe(cur))")
+                if !noFormatLogged.contains(d.uid) {
+                    noFormatLogged.insert(d.uid)
+                    log("\(d.name): no \(targetChannels)-ch PCM format at \(Int(cur.mSampleRate)) Hz offered; leaving \(describe(cur)) (not repeated)")
+                }
                 continue
             }
             var a = addr(kAudioStreamPropertyPhysicalFormat)
@@ -581,6 +586,7 @@ while !args.isEmpty {
     switch a {
     case "--status": mode = "status"
     case "--clients": mode = "clients"
+    case "--reinit": mode = "reinit"
     case "--aggregate-layout":
         guard !args.isEmpty else { print("--aggregate-layout needs labels like 1,2,3,4,5,6 or 'default'"); exit(2) }
         let v = args.removeFirst()
@@ -619,7 +625,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --aggregate on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit | --aggregate on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
@@ -627,6 +633,26 @@ while !args.isEmpty {
 
 switch mode {
 case "status": printStatus()
+case "reinit":
+    // Restart the HDMI audio stream by bouncing the channel count. On this TV a channel-count change drops the
+    // video link for ~20 s (and has caused Clamshell Sleep with the lid closed), so: never with a game running.
+    for d in outputDevices() where isManaged(d) {
+        if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
+            print("\(d.name): \(procName(pid)) is playing on it; quit the game first (a re-init kills its audio)"); exit(1)
+        }
+        for st in outputStreams(d) {
+            guard let cur = getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
+            let other: UInt32 = cur.mChannelsPerFrame == 2 ? targetChannels : 2
+            guard var tmp = stereoCandidate(for: st, current: cur, channels: other) else { print("\(d.name): no \(other)-ch format to bounce through"); continue }
+            var a = addr(kAudioStreamPropertyPhysicalFormat)
+            let s1 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &tmp)
+            print("\(d.name): \(describe(cur)) -> \(describe(tmp)) (status \(s1)); waiting 3 s, then back")
+            sleep(3)
+            var back = cur
+            let s2 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &back)
+            print("\(d.name): -> \(describe(cur)) (status \(s2)). Expect the TV picture to drop for up to 20 s; the agent re-applies the layout when the endpoint returns.")
+        }
+    }
 case "clients":
     for d in watched() {
         let pids = runningOutputPIDs(on: d.id).sorted()

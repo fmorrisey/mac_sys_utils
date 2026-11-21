@@ -29,6 +29,7 @@ The agent (`display-mode --watch`, LaunchAgent `com.fmorrisey.display-mode`)
   switches by itself once the game quits (`DISPLAY_MODE_GAME_GUARD=0` disables);
 - notifies once per TV identity when the TV came up with the cut-down list, so
   you know a TV power-cycle or input switch is the only thing left to do;
+- also polls every 5 s (the CG reconfiguration callback was silent for a TV unplug and a monitor plug on 2026-11-20/21) and runs the on-change hook;
 - logs to `~/Library/Logs/display-mode.log`.
 
 Settings live in the plist's `EnvironmentVariables`:
@@ -39,6 +40,8 @@ Settings live in the plist's `EnvironmentVariables`:
 | `DISPLAY_MODE_VENDOR` | `0x4c2d` (Samsung) | only manage displays from this EDID vendor; unset = any external display |
 | `DISPLAY_MODE_NOTIFY` | `1` | macOS notifications |
 | `DISPLAY_MODE_GAME_GUARD` | `1` | leave the mode alone while a `*.exe` game process runs |
+| `DISPLAY_MODE_REQUIRE_MODE` | `3840x2160` | only manage displays that offer this size (the TV; not the desk ultrawide); empty = any |
+| `DISPLAY_MODE_ON_CHANGE` | `skymod.py res auto` | shell command run after any display change, with `DM_WIDTH`/`DM_HEIGHT`/`DM_HZ`/`DM_IDENTITY` set; keeps Skyrim's INI at the display's size |
 
 Reading the identity line: `vendor=0x4c2d` is Samsung; `model` is the EDID
 product code and changes with the TV's EDID variant. Seen so far:

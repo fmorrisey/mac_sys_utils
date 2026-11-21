@@ -12,6 +12,7 @@ script keeps that reversible and keeps the plugin load order in one place.
 ./skymod.py uninstall ID ...       # removes the mod's files, restores anything it overwrote
 ./skymod.py plugins                # rewrite Plugins.txt from the manifest order
 ./skymod.py verify                 # every recorded file still present?
+./skymod.py res [WxH|auto]         # game resolution in SkyrimPrefs.ini; the SKSE swap removes the launcher's Options dialog
 ```
 
 Downloads are looked for in `~/Games/Skyrim Mods/downloads` and `~/Downloads`
@@ -34,6 +35,11 @@ Steam's Play button runs `SkyrimSELauncher.exe`. The `skse` entry's post step
 backs that file up and replaces it with `skse64_loader.exe`, so Play launches
 SKSE. `uninstall skse` puts the stock launcher back. A game update from Steam
 will also put it back (and break SKSE until a matching build exists).
+
+The display-mode agent runs `skymod.py res auto` after every display change, so
+the game resolution follows the TV (2560x1440) or the desk ultrawide (3440x1440)
+by itself; it cannot write while Skyrim is running (the game rewrites the INI on
+exit), so it applies at the next launch.
 
 ## Game version 1.7.104 (August 2026 update)
 

@@ -16,6 +16,7 @@ Commands
   uninstall ID [ID...]    remove a mod's files (and restore what it overwrote)
   plugins                 (re)write Plugins.txt from the manifest order
   verify                  check that every recorded file is still there
+  res [WxH|auto]          show or set the game resolution in SkyrimPrefs.ini (no launcher dialog with SKSE); auto = match the display
 
 Only standard library + /usr/bin/bsdtar (reads .7z/.zip/.rar). Python 3.9+.
 """
@@ -492,6 +493,46 @@ def cmd_verify(ctx, args):
     sys.exit(1 if bad else 0)
 
 
+def cmd_res(ctx, args):
+    """Set the game resolution in SkyrimPrefs.ini (the Bethesda launcher is replaced by the SKSE loader, so this is the knob)."""
+    import re
+    ini = expand(ctx.m["config"].get("prefs_ini", "~/Documents/My Games/Skyrim Special Edition/SkyrimPrefs.ini"))
+    if subprocess.run(["pgrep", "-f", "SkyrimSE[.]exe"], capture_output=True).returncode == 0 and not ctx.force:
+        raise SystemExit("Skyrim is running and rewrites SkyrimPrefs.ini on exit; quit it first (or --force to write anyway)")
+    s = ini.read_text(encoding="utf-8", errors="surrogateescape")
+    if args.size is None:
+        w = re.search(r"(?m)^iSize W=(\d+)", s); h = re.search(r"(?m)^iSize H=(\d+)", s)
+        b = re.search(r"(?m)^bBorderless=(\d)", s); f = re.search(r"(?m)^bFull Screen=(\d)", s)
+        print(f"{w.group(1) if w else '?'}x{h.group(1) if h else '?'}  borderless={b.group(1) if b else '?'} fullscreen={f.group(1) if f else '?'}  ({ini})")
+        return
+    if args.size == "auto":
+        dm = Path.home() / ".local/bin/display-mode"
+        out = subprocess.run([str(dm)], capture_output=True, text=True).stdout if dm.exists() else ""
+        cur = re.search(r"CURRENT:\s+io=\d+\s+(\d+)x(\d+)", out)
+        if not cur:
+            raise SystemExit("could not read the current display mode (is display-mode installed?)")
+        args.size = f"{cur.group(1)}x{cur.group(2)}"
+        print(f"display is {args.size}")
+    m = re.match(r"^(\d+)x(\d+)$", args.size)
+    if not m:
+        raise SystemExit("give WxH (e.g. 3440x1440) or 'auto' to match the connected display")
+    w, h = m.group(1), m.group(2)
+    bak = ini.with_name(ini.name + ".bak-" + time.strftime("%Y%m%d%H%M%S"))
+    shutil.copy2(ini, bak)
+    s, n1 = re.subn(r"(?m)^iSize W=\d+", f"iSize W={w}", s)
+    s, n2 = re.subn(r"(?m)^iSize H=\d+", f"iSize H={h}", s)
+    if args.borderless is not None:
+        # true borderless window = bBorderless=1 AND bFull Screen=0; with both at 1 Wine does a fullscreen
+        # modeset and lands the desk monitor on 60 Hz for the session
+        s = re.sub(r"(?m)^bBorderless=\d", f"bBorderless={1 if args.borderless else 0}", s)
+        s = re.sub(r"(?m)^bFull Screen=\d", f"bFull Screen={0 if args.borderless else 1}", s)
+    if not (n1 and n2):
+        raise SystemExit("iSize W/H not found in " + str(ini))
+    with open(ini, "w", encoding="utf-8", errors="surrogateescape", newline="") as f:
+        f.write(s)
+    print(f"resolution set to {w}x{h} in {ini} (backup {bak.name})")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--manifest", default=str(HERE / "mods.json"))
@@ -503,6 +544,7 @@ def main():
     s = sub.add_parser("install"); s.add_argument("ids", nargs="*"); s.add_argument("--all", action="store_true"); s.add_argument("--nexus", nargs="+", help="select by Nexus mod id"); s.add_argument("--reinstall", action="store_true"); s.set_defaults(fn=cmd_install)
     u = sub.add_parser("uninstall"); u.add_argument("ids", nargs="+"); u.set_defaults(fn=cmd_uninstall)
     sub.add_parser("plugins").set_defaults(fn=cmd_plugins)
+    r = sub.add_parser("res", help="show or set the game resolution (WxH) in SkyrimPrefs.ini"); r.add_argument("size", nargs="?"); r.add_argument("--borderless", type=int, choices=[0, 1], default=None); r.set_defaults(fn=cmd_res)
     sub.add_parser("verify").set_defaults(fn=cmd_verify)
     args = ap.parse_args()
     try:

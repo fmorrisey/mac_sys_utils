@@ -25,6 +25,12 @@ let prefs = parsePrefs(env["DISPLAY_MODE_PREFER"] ?? "2560x1440@120,2560x1440@10
 let onlyVendor: UInt32? = env["DISPLAY_MODE_VENDOR"].flatMap { UInt32($0.replacingOccurrences(of: "0x", with: ""), radix: 16) }
 let notifyEnabled = env["DISPLAY_MODE_NOTIFY"] != "0"
 let gameGuard = env["DISPLAY_MODE_GAME_GUARD"] != "0"
+/// Only manage displays that offer this WxH (any refresh); keeps the agent off the desk monitor. Empty = any external display.
+let requireMode: (Int, Int)? = {
+    let t = (env["DISPLAY_MODE_REQUIRE_MODE"] ?? "3840x2160").lowercased().split(separator: "x")
+    guard t.count == 2, let w = Int(t[0]), let h = Int(t[1]) else { return nil }
+    return (w, h)
+}()
 let virtualVendor: UInt32 = 0x756e6b6e   // "unkn": macOS's headless virtual display
 
 // MARK: - helpers
@@ -58,6 +64,7 @@ func managed(_ id: CGDirectDisplayID) -> Bool {
     let v = CGDisplayVendorNumber(id)
     if v == virtualVendor { return false }
     if let ov = onlyVendor, ov != v { return false }
+    if let (rw, rh) = requireMode, !modes(id).contains(where: { $0.width == rw && $0.height == rh && !isHiDPI($0) }) { return false }
     return true
 }
 func setMode(_ id: CGDirectDisplayID, _ m: CGDisplayMode) -> CGError {
@@ -93,9 +100,35 @@ func bestMode(for id: CGDirectDisplayID) -> (CGDisplayMode, Int)? {
     }
     return nil
 }
+let pollSeconds: TimeInterval = 5
+/// Shell command run after every display change (any display, managed or not), with DM_WIDTH / DM_HEIGHT /
+/// DM_HZ / DM_IDENTITY of the main display in the environment. Used to keep Skyrim's INI at the display's size.
+let onChange = env["DISPLAY_MODE_ON_CHANGE"] ?? ""
+func runOnChange(reason: String) {
+    guard !onChange.isEmpty else { return }
+    let main = CGMainDisplayID()
+    guard let m = CGDisplayCopyDisplayMode(main) else { return }
+    let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/sh"); p.arguments = ["-c", onChange]
+    var e = ProcessInfo.processInfo.environment
+    e["DM_WIDTH"] = "\(m.width)"; e["DM_HEIGHT"] = "\(m.height)"; e["DM_HZ"] = "\(Int(m.refreshRate.rounded()))"; e["DM_IDENTITY"] = identity(main)
+    p.environment = e
+    let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe
+    do { try p.run() } catch { log("on-change hook failed to start: \(error)"); return }
+    p.waitUntilExit()
+    let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    log("on-change hook (\(reason), \(m.width)x\(m.height)): exit \(p.terminationStatus)" + (out.isEmpty ? "" : " — " + out.replacingOccurrences(of: "\n", with: " | ")))
+}
 final class Agent {
     var notified = Set<String>()        // identity -> already told the user about the cut-down list / game guard
     var pending: DispatchWorkItem?
+    var pollTimer: DispatchSourceTimer?
+    var lastSeen: [String: Int32] = [:]
+    /// identity -> current mode id, for every online display (managed or not)
+    func snapshot() -> [String: Int32] {
+        var out: [String: Int32] = [:]
+        for id in onlineDisplays() { out[identity(id)] = CGDisplayCopyDisplayMode(id)?.ioDisplayModeID ?? -1 }
+        return out
+    }
     func apply(reason: String) {
         for id in onlineDisplays() where managed(id) {
             let ident = identity(id)
@@ -128,13 +161,18 @@ final class Agent {
         pending?.cancel()
         let w = DispatchWorkItem { [self] in
             apply(reason: reason)
+            runOnChange(reason: reason)
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [self] in apply(reason: reason + " (second pass)") }
         }
         pending = w
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: w)
     }
     func watch() {
-        log("display-mode agent starting: prefer " + prefs.map { $0.text }.joined(separator: " > ") + (onlyVendor.map { String(format: ", vendor 0x%04x only", $0) } ?? "") + ", game guard \(gameGuard ? "on" : "off")")
+        var banner = "display-mode agent starting: prefer " + prefs.map { $0.text }.joined(separator: " > ")
+        if let v = onlyVendor { banner += String(format: ", vendor 0x%04x only", v) }
+        if let (rw, rh) = requireMode { banner += ", only displays offering \(rw)x\(rh)" }
+        banner += ", game guard \(gameGuard ? "on" : "off"), poll \(Int(pollSeconds)) s"
+        log(banner)
         apply(reason: "startup")
         let cb: CGDisplayReconfigurationCallBack = { id, flags, ctx in
             let agent = Unmanaged<Agent>.fromOpaque(ctx!).takeUnretainedValue()
@@ -147,6 +185,20 @@ final class Agent {
             else if flags.contains(.setModeFlag) { agent.schedule("mode changed on \(identity(id))") }
         }
         CGDisplayRegisterReconfigurationCallback(cb, Unmanaged.passUnretained(self).toOpaque())
+        // Belt and braces: the callback did not fire for a TV unplug / monitor plug on 2026-11-20/21, so poll too.
+        lastSeen = snapshot()
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(deadline: .now() + pollSeconds, repeating: pollSeconds)
+        t.setEventHandler { [self] in
+            let now = snapshot()
+            if now != lastSeen {
+                let gone = lastSeen.keys.filter { now[$0] == nil }, added = now.keys.filter { lastSeen[$0] == nil }
+                for g in gone { notified = notified.filter { !$0.hasPrefix(g) }; log("display \(g) gone (poll)") }
+                lastSeen = now
+                schedule(added.isEmpty ? "display change (poll)" : "display \(added.joined(separator: ",")) added (poll)")
+            }
+        }
+        t.resume(); pollTimer = t
         CFRunLoopRun()
     }
 }

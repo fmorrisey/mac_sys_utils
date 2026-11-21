@@ -11,7 +11,12 @@
         <key>DISPLAY_MODE_PREFER</key><string>2560x1440@120,2560x1440@100,1920x1080@120,2560x1440@60</string>
         <!-- only touch displays from this EDID vendor (0x4c2d = Samsung); remove to manage any external display -->
         <key>DISPLAY_MODE_VENDOR</key><string>0x4c2d</string>
+        <!-- only manage displays that offer this mode (the 4K TV does, the desk ultrawide does not); empty = any -->
+        <key>DISPLAY_MODE_REQUIRE_MODE</key><string>3840x2160</string>
         <key>DISPLAY_MODE_NOTIFY</key><string>1</string>
+        <!-- run after any display change (DM_WIDTH/DM_HEIGHT/DM_HZ/DM_IDENTITY in the environment);
+             here: keep Skyrim's resolution equal to the connected display (refuses while Skyrim runs) -->
+        <key>DISPLAY_MODE_ON_CHANGE</key><string>__HOME__/Code/mac_sys_utils/skyrim_mods/skymod.py res auto</string>
         <!-- do not switch while a Wine game is running (it would lose its audio); 0 to switch regardless -->
         <key>DISPLAY_MODE_GAME_GUARD</key><string>1</string>
     </dict>

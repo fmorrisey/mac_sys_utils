@@ -142,3 +142,14 @@ keeps its one stream and simply resumes when the TV is back.
   in-game re-writes include it
 - `HDMI_AUDIO_STEREO_AGGREGATE=0` in the plist or `--aggregate off` (destroys it
   and puts the default output back on the TV endpoint); `--aggregate on`
+
+## Re-initialising the stream (`--reinit`)
+
+2026-11-20: after several TV link drops every channel started arriving one HDMI
+slot late (front right at the sub, centre at a rear, a rear at the bar) while
+the Mac's labels were correct and the Sonos reported Multichannel PCM 5.1. A TV
+input switch did not clear it. `--reinit` bounces the endpoint's channel count
+(6 → 2 → 6) to restart the audio packet stream. On this TV that drops the
+picture for up to 20 s and has put the lid-closed Mac to sleep before, so the
+command refuses to run while a Wine game is playing. The agent puts the format
+and layout back when the endpoint returns. Verify with `speaker_test`.
