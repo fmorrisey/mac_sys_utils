@@ -1,0 +1,965 @@
+{
+ "config": {
+  "game_dir": "/Applications/Ported Games/Steambuild 32 64bit Metal.app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Skyrim Special Edition",
+  "plugins_txt": "/Applications/Ported Games/Steambuild 32 64bit DXVK.app/Contents/SharedSupport/prefix/drive_c/users/Wineskin/AppData/Local/Skyrim Special Edition/Plugins.txt",
+  "state_dir": "~/Games/Skyrim Mods/state",
+  "downloads": [
+   "~/Games/Skyrim Mods/downloads",
+   "~/Downloads"
+  ],
+  "running_patterns": [
+   "Steambuild 32 64bit (DXVK|Metal)[.]app/Contents/SharedSupport/wine"
+  ]
+ },
+ "mods": [
+  {
+   "id": "skse",
+   "name": "Skyrim Script Extender (SKSE64) 2.3.1",
+   "nexus": 30379,
+   "archive": [
+    "Skyrim Script Extender (SKSE64) Steam*.7z",
+    "skse64_2_03*.7z"
+   ],
+   "include": [
+    {
+     "from_marker": "skse64_loader.exe",
+     "to": "",
+     "exclude": [
+      "src/*",
+      "*.txt"
+     ]
+    }
+   ],
+   "post": "skse_launcher_swap",
+   "notes": "Framework. File: 'Current Anniversary Edition build 2.3.1 (game version 1.7.104)'. Steam's Play button is swapped to the SKSE loader.",
+   "pick": "Skyrim Script Extender (SKSE64) Steam  2.3.1  (1 MB)",
+   "file_id": 795992
+  },
+  {
+   "id": "address-library",
+   "name": "Address Library for SKSE Plugins",
+   "nexus": 32444,
+   "notes": "File: 'All in One (1.7.104.0)' v13 or newer. Required by every SKSE DLL plugin below.",
+   "pick": "Address Library All in One (1.7.104.0) v13  (6 MB)",
+   "file_id": 795954
+  },
+  {
+   "id": "engine-fixes",
+   "name": "SSE Engine Fixes",
+   "nexus": 17230,
+   "url": "https://github.com/aers/EngineFixesSkyrim64/releases",
+   "archive": [
+    "EngineFixes*.7z",
+    "Engine Fixes 7.0.21*.7z",
+    "Engine Fixes - Main File*.7z"
+   ],
+   "include": [
+    {
+     "from": "EngineFixes FOMOD Installer/Required",
+     "to": "Data"
+    },
+    {
+     "from": "EngineFixes FOMOD Installer/AE",
+     "to": "Data",
+     "exclude": [
+      "*.pdb"
+     ]
+    }
+   ],
+   "notes": "7.0.21-beta5 from GitHub (built for 1.7.99+, uses Address Library). Part 2 (preloader) is optional and not installed.",
+   "pick": "Engine Fixes 7.0.21 beta for Skyrim AE 1.7.99  (already installed from GitHub; skip)",
+   "file_id": 794484
+  },
+  {
+   "id": "engine-fixes-preloader",
+   "name": "Engine Fixes - SKSE64 Preloader (Part 2)",
+   "nexus": 17230,
+   "enabled": false,
+   "archive": [
+    "Engine Fixes - SKSE64 Preloader*.7z"
+   ],
+   "include": [
+    {
+     "from": "",
+     "to": ""
+    }
+   ],
+   "notes": "Optional. Goes in the game root (d3dx9_42.dll + xSE PluginPreloader.xml). Under Wine it also needs the DllOverride d3dx9_42=native,builtin in the DXVK prefix's user.reg (edit only while the wrapper is closed).",
+   "pick": "Engine Fixes - SKSE64 Preloader v7  (optional, not needed to start)",
+   "file_id": 725261
+  },
+  {
+   "id": "ussep",
+   "name": "Unofficial Skyrim Special Edition Patch",
+   "nexus": 266,
+   "plugins": [
+    "Unofficial Skyrim Special Edition Patch.esp"
+   ],
+   "notes": "Thousands of bug fixes. Page says it requires game 1.7.99 or greater - matches 1.7.104.",
+   "pick": "Unofficial Skyrim Special Edition Patch 4.3.9c  (174 MB)",
+   "file_id": 800977
+  },
+  {
+   "id": "skyui",
+   "name": "SkyUI 5.2 SE",
+   "nexus": 12604,
+   "archive": [
+    "SkyUI*.7z",
+    "SkyUI*.zip"
+   ],
+   "plugins": "auto",
+   "notes": "Inventory/menu overhaul + MCM. Needs SKSE.",
+   "pick": "SkyUI 6.11  (3 MB)",
+   "file_id": 749043
+  },
+  {
+   "id": "cutting-room-floor",
+   "name": "Cutting Room Floor",
+   "nexus": 276,
+   "plugins": [
+    "Cutting Room Floor.esp"
+   ],
+   "notes": "Restores cut content (quests, NPCs, locations).",
+   "pick": "Cutting Room Floor 3.1.26  (5 MB)",
+   "file_id": 796288,
+   "include": [
+    {
+     "from": "00 Core",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "smim",
+   "name": "Static Mesh Improvement Mod (SMIM)",
+   "nexus": 659,
+   "plugins": [
+    "SMIM-SE-Merged-All.esp"
+   ],
+   "notes": "FOMOD 'Everything' equivalent: Core + one variant per option group (standard choices), individual fix esps dropped in favour of the merged plugin. Skipped: Skyrim-HD furniture variants, half/ultra-sized textures, SkyMills/CCO patches.",
+   "archive": [
+    "SMIM SE*.7z"
+   ],
+   "pick": "SMIM SE 2-08  (1008 MB) - FOMOD, I set the options",
+   "file_id": 59069,
+   "include": [
+    {
+     "from": "00 Core",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "01 Furniture",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "02 SMIM Barrel Textures Animations",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "03 Food",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "04 Farmhouse 3D Ropes No Fade (Best)",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "05 Chains 3D - Misc",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "06 Chains 3D - Signs",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "07 Chains 3D - Whiterun",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "08 Chains 3D - Pull Levers",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "09 Dwemer Clutter",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "10 Nordic Tables and Benches",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "11 Bridges",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "12 Whiterun Doors",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "13 Lanterns",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "14 Stockade 3D Ropes",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "15 Clothing Fixes",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "16 Tankard Pewter Metal",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "17 Nordic Catacombs Skeletal Remains",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "18 Farmhouse Woven Fence",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "19 Smelter",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "21 Dwemer Animated Lifts SE",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "22 Solitude Docks Ropes SE",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "23 Tomato Pure Red without Blemish",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "25 Solitude Gate Doors",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "26 Human Skull Fixes",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "27 Hawk",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "28 Hawk Dragonborn Fix",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "29 Raven Rock 3D Ropes",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "30 Rocks - Generic",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "31 Rocks - Blackreach",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "32 Rocks - Mountains",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "33 Orc Longhouse",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "35 Shack Kit",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "36 Shack Kit Dragonborn",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "37 Riften 3D Ropes",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "38 Riften 3D Ropes Better Ropes Texture",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "39 Dungeons 3D Ropes and Glorious Scaffolding",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "40 Furniture Chests",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "41 Draugr Corpses",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "42 Furniture Noble",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "43 Whiterun Castle Wood Carvings Vanilla",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "44 Poor Coffin Custom Texture",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "45 Hanging Rings",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "46 Carriage Seats and Fixes",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "47 Juniper Tree",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "49 Tundra Tree",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "50 Dawnguard Soulcairn Bone Piles",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "53 Imperial Jail",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "55 Windmills Base Vanilla Version",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "55 Windmills Base Vanilla Version Sails",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "57 Ruins Sarcophagus",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "58 Jewelry Rings",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "60 Hearthfires Stuff",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "61 Bowl Ingredients",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "70 Rabbit",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "71 Candelabras Sconces Walltorches",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "72 Chandeliers",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "75 Dungeons Cliffs Snow Skirts",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "95 Merged ESP SE All",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "blended-roads",
+   "name": "Blended Roads",
+   "nexus": 8834,
+   "plugins": [
+    "BlendedRoads.esp"
+   ],
+   "notes": "Roads that blend into the terrain. FOMOD - inspect first.",
+   "archive": [
+    "Blended Roads-8834*.7z"
+   ],
+   "pick": "Blended Roads 1.7  (54 MB)",
+   "file_id": 133231,
+   "include": [
+    {
+     "from": "00 Blended Roads",
+     "to": "Data"
+    },
+    {
+     "from": "01 Blended Roads SMIM Compatibility patch",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "skyland-aio",
+   "name": "Skyland AIO (landscape + architecture textures)",
+   "nexus": 34179,
+   "notes": "FOMOD: all region/architecture/landscape packs + Blended Roads (+SMIM) textures. Skipped: Night Skies (Cathedral), Watercolor esps (RW2 handles water), snow/dirt road and grey-town variants, road-sign addon esps.",
+   "archive": [
+    "Skyland AIO-34179*.7z"
+   ],
+   "pick": "Skyland AIO 4.32  (6681 MB; NOT the 1k one)",
+   "file_id": 443514,
+   "include": [
+    {
+     "from": "Skyland AIO/01_Granite Mountains",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/10_Skyland HD Road Signs",
+     "to": "Data",
+     "exclude": [
+      "*.esp"
+     ]
+    },
+    {
+     "from": "Skyland AIO/110_Skyland Whiterun",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/120_Skyland Winterhold",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/131_Skyland Windows",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/20_Skyland Imperial Forts and Dungeons",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/30_Skyland - A Landscape Texture Overhaul",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/34_Blended Roads",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/33_Blended Roads SMIM",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/40_Skyland Markarth",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/50_Skyland Nordic Ruins",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/60_Skyland Riften",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/70_Skyland Ships and Shacks",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/75_Skyland Imperial and Nordic Tents",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/80_Skyland Solitude",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/90_Skyland Towns and Villages",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/91_Skyland High Hrothgar",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/92_Skyhaven Temple",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/93_Sovngarde",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/94_Windhelm",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/95_500 Donar Wall",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/96_Dawnguard",
+     "to": "Data"
+    },
+    {
+     "from": "Skyland AIO/97_Skyland Dragonborn",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "happy-little-trees",
+   "name": "Happy Little Trees",
+   "nexus": 50961,
+   "plugins": [
+    "HappyLittleTrees.esp"
+   ],
+   "notes": "Core trees + core plugin. Skipped Additional Trees, scaled trees, snow variants.",
+   "archive": [
+    "Happy Little Trees-50961-2-03*.7z"
+   ],
+   "pick": "Happy Little Trees 2.03  (306 MB)",
+   "file_id": 320481,
+   "include": [
+    {
+     "from": "00 Core Files",
+     "to": "Data"
+    },
+    {
+     "from": "02 PCore Files Plugin",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "happy-little-trees-patch",
+   "name": "Happy Little Trees - HLT Patch 2.05",
+   "nexus": 50961,
+   "archive": [
+    "HLT Patch-50961*.7z"
+   ],
+   "notes": "Update file for Happy Little Trees; install after the main file.",
+   "pick": "HLT Patch 2.05  (under Updates on the same page)",
+   "file_id": 454550
+  },
+  {
+   "id": "elfx",
+   "name": "Enhanced Lights and FX",
+   "nexus": 2424,
+   "plugins": [
+    "EnhancedLightsandFX.esp",
+    "ELFX - Exteriors.esp"
+   ],
+   "notes": "Core + Exteriors + SMIM compatibility meshes. Skipped Enhancer/Hardcore (taste), Weathers (Cathedral handles weather), EnhancedIce (Skyland), torch/candle tweaks.",
+   "pick": "Enhanced Lights and FX 3.06  (103 MB) - FOMOD, I set the options",
+   "file_id": 35608,
+   "include": [
+    {
+     "from": "EnhancedLightsandFX 3.06/00 Core Files",
+     "to": "Data"
+    },
+    {
+     "from": "EnhancedLightsandFX 3.06/02 ELFXExteriors",
+     "to": "Data"
+    },
+    {
+     "from": "EnhancedLightsandFX 3.06/03 SMIM Meshes",
+     "to": "Data"
+    },
+    {
+     "from": "EnhancedLightsandFX 3.06/03 SMIM Lantern",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "cathedral-weathers",
+   "name": "Cathedral Weathers and Seasons",
+   "nexus": 24791,
+   "plugins": "auto",
+   "notes": "Weather/lighting overhaul, performance friendly, no ENB needed. Only one weather mod.",
+   "archive": [
+    "Cathedral - Weathers-24791*.7z"
+   ],
+   "pick": "Cathedral - Weathers 2.23c  (99 MB)",
+   "file_id": 398809
+  },
+  {
+   "id": "realistic-water-two",
+   "name": "Realistic Water Two SE",
+   "nexus": 2182,
+   "plugins": [
+    "RealisticWaterTwo - Resources.esm",
+    "RealisticWaterTwo.esp"
+   ],
+   "notes": "Core + 2K water textures (MoltenVK-friendly). No patches needed for this load order.",
+   "archive": [
+    "Realistic Water Two SE v5*.7z"
+   ],
+   "pick": "Realistic Water Two SE v5.7.3  (89 MB) - FOMOD",
+   "file_id": 705147,
+   "include": [
+    {
+     "from": "Realistic Water Two SE-2182/000 Core (Required 4K)",
+     "to": "Data",
+     "exclude": [
+      "skyrim.esm"
+     ]
+    },
+    {
+     "from": "Realistic Water Two SE-2182/100 Optional Textures - Half Res (2K)",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "embers-hd",
+   "name": "Embers HD",
+   "nexus": 14368,
+   "plugins": [
+    "EmbersHD.esp"
+   ],
+   "notes": "2K embers + fireplaces with FX + forges + lava crater. Patches for other mods skipped.",
+   "archive": [
+    "Embers HD-14368*.zip"
+   ],
+   "pick": "Embers HD 1.4.2  (119 MB)",
+   "file_id": 280827,
+   "include": [
+    {
+     "from": "EHD 2k",
+     "to": "Data"
+    },
+    {
+     "from": "EHDFireplacesFX",
+     "to": "Data"
+    },
+    {
+     "from": "EHDForges",
+     "to": "Data"
+    },
+    {
+     "from": "EHDLavaCrater",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "enhanced-blood",
+   "name": "Enhanced Blood Textures",
+   "nexus": 2357,
+   "plugins": [
+    "dD - Enhanced Blood Main.esp"
+   ],
+   "notes": "Core + normal (non-SPID) plugin + medium default textures + vanilla screen blood.",
+   "archive": [
+    "Enhanced Blood Textures-2357-4*.7z"
+   ],
+   "pick": "Enhanced Blood Textures 4.0  (124 MB) - FOMOD",
+   "file_id": 249235,
+   "include": [
+    {
+     "from": "1 core files",
+     "to": "Data"
+    },
+    {
+     "from": "1a normal",
+     "to": "Data"
+    },
+    {
+     "from": "4 texture res and color/med-default",
+     "to": "Data"
+    },
+    {
+     "from": "5 vanilla screen blood",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "amidianborn",
+   "name": "aMidianBorn Book of Silence SE",
+   "nexus": 35382,
+   "notes": "COMPLETE pack; the esp must stay enabled so its BSA loads. Optional variant plugins not installed.",
+   "archive": [
+    "aMidianBorn Book of Silence SE -- COMPLETE*.zip"
+   ],
+   "pick": "1) aMidianBorn Book of Silence SE -- COMPLETE 1.9.1  (947 MB)",
+   "file_id": 148088,
+   "include": [
+    {
+     "from": "",
+     "to": "Data",
+     "exclude": [
+      "aMidianBorn Optional Plugins/*"
+     ]
+    }
+   ],
+   "plugins": [
+    "aMidianBorn_Book of Silence.esp"
+   ]
+  },
+  {
+   "id": "quality-world-map",
+   "name": "A Quality World Map",
+   "nexus": 5804,
+   "notes": "Detailed world map with roads. Pick 'Vivid with Stone Roads'. inspect first (may include an esp).",
+   "archive": [
+    "*Vivid with Stone Roads*.zip"
+   ],
+   "plugins": "auto",
+   "pick": "9.0.1 A Quality World Map - Vivid with Stone Roads  (21 MB)",
+   "file_id": 13792
+  },
+  {
+   "id": "better-dialogue-controls",
+   "name": "Better Dialogue Controls",
+   "nexus": 1429,
+   "notes": "Fixes dialogue option selection with mouse/controller.",
+   "pick": "Better Dialogue Controls v1_2  (tiny)",
+   "file_id": 11022
+  },
+  {
+   "id": "better-messagebox-controls",
+   "name": "Better MessageBox Controls",
+   "nexus": 1428,
+   "notes": "Keyboard/controller navigation of message boxes.",
+   "pick": "Better MessageBox Controls v1_2  (tiny)",
+   "file_id": 11023
+  },
+  {
+   "id": "unread-books-glow",
+   "name": "Unread Books Glow",
+   "nexus": 1296,
+   "plugins": "auto",
+   "archive": [
+    "Unread Books Glow SSE 2.2.1-1296*.zip"
+   ],
+   "notes": "duggelz's original; the BSA version",
+   "pick": "Unread Books Glow SSE 2.2.1  (the one WITHOUT '(Loose)')",
+   "file_id": 2144
+  },
+  {
+   "id": "run-for-your-lives",
+   "name": "Run For Your Lives",
+   "nexus": 2272,
+   "plugins": [
+    "Run For Your Lives.esp"
+   ],
+   "notes": "Civilians flee dragons and vampires instead of dying.",
+   "pick": "Run For Your Lives 4.0.8  (tiny)",
+   "file_id": 818396
+  },
+  {
+   "id": "no-spinning-death",
+   "name": "No Spinning Death Animation",
+   "nexus": 1432,
+   "plugins": "auto",
+   "archive": [
+    "No Spinning Death Animation MERGED*.zip"
+   ],
+   "pick": "No Spinning Death Animation MERGED 1.31",
+   "file_id": 9879
+  },
+  {
+   "id": "ihud",
+   "name": "Immersive HUD - iHUD",
+   "nexus": 12440,
+   "plugins": "auto",
+   "notes": "Hides HUD elements until needed. Needs SkyUI.",
+   "pick": "Immersive HUD - iHUD 0.2b  (.rar)",
+   "file_id": 35481
+  },
+  {
+   "id": "alternate-start",
+   "name": "Alternate Start - Live Another Life",
+   "nexus": 272,
+   "plugins": [
+    "Alternate Start - Live Another Life.esp"
+   ],
+   "notes": "Skip the Helgen intro; choose a start. Loads near the end.",
+   "pick": "Alternate Start - Live Another Life 4.2.6a  (5 MB)",
+   "file_id": 729409
+  }
+ ]
+}
