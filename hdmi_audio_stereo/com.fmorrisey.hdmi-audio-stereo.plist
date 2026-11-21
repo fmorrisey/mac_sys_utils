@@ -32,6 +32,10 @@
         <key>HDMI_AUDIO_STEREO_DEVICES</key>
         <string>SAMSUNG</string>
         -->
+        <!-- stable output: wrap the TV endpoint in an aggregate device named "TV" and keep that the default output,
+             so a TV blink never changes the default and Wine games keep their stream (0 to disable; --aggregate on|off at runtime) -->
+        <key>HDMI_AUDIO_STEREO_AGGREGATE</key><string>1</string>
+        <key>HDMI_AUDIO_STEREO_AGGREGATE_NAME</key><string>TV</string>
         <key>HDMI_AUDIO_STEREO_NOTIFY</key>
         <string>1</string>
         <!-- Hand the default output back to a display endpoint that vanished and returned (1), or leave macOS's fallback alone (0). -->

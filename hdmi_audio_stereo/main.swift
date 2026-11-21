@@ -242,6 +242,10 @@ func stereoCandidate(for stream: AudioStreamID, current: AudioStreamBasicDescrip
 @discardableResult
 func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
     var changed: [String] = []
+    ensureAggregate(verbose: verbose)
+    if aggEnabled, let a = outputDevices().first(where: isAggregate) {
+        if applyLayout(a, verbose: verbose, force: forceLayout) && !changed.contains(a.name) { changed.append(a.name) }
+    }
     for d in outputDevices() where isManaged(d) {
         defer { if applyLayout(d, verbose: verbose, force: forceLayout) && !changed.contains(d.name) { changed.append(d.name) } }
         for s in outputStreams(d) {
@@ -272,9 +276,9 @@ func printStatus() {
     print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled))")
     for d in outputDevices() {
         let flag = d.id == def ? "*" : " "
-        let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : "ignored"
+        let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : (isAggregate(d) ? "stable output (aggregate around the TV)" : "ignored")
         print("\(flag) \(d.name)  [\(d.transport)]  \(d.channels) out ch  \(managed)  uid=\(d.uid)")
-        if isManaged(d) {
+        if isManaged(d) || isAggregate(d) {
             let cur = currentLayoutLabels(d.id)
             print("      speaker layout: \(cur.isEmpty ? "unset/tag-based" : describeLabels(cur))" + (desiredLayout.map { "   wanted: \(describeLabels($0))" } ?? "   (no layout configured)"))
         }
@@ -290,6 +294,87 @@ func printStatus() {
 
 // MARK: - watch loop
 
+
+// MARK: - stable output: an aggregate device wrapping the TV endpoint
+// Every TV blink makes macOS fall back to the built-in speakers for a couple of seconds; a Wine game follows
+// the default output the moment it changes and never comes back (Halo, 2026-11-20). An aggregate device that
+// wraps the HDMI endpoint survives the blink, so the default output never changes and the game keeps one stream.
+let aggUID = "com.fmorrisey.hdmi-audio-stereo.aggregate"
+let aggName = env["HDMI_AUDIO_STEREO_AGGREGATE_NAME"] ?? "TV"
+func prefsAggregate() -> Bool? {
+    guard let v = CFPreferencesCopyAppValue("aggregate" as CFString, prefsDomain) else { return nil }
+    return (v as? Bool) ?? ((v as? NSNumber)?.boolValue)
+}
+var aggEnabled: Bool { prefsAggregate() ?? ((env["HDMI_AUDIO_STEREO_AGGREGATE"] ?? "1") != "0") }
+func setPrefsAggregate(_ on: Bool?) {
+    CFPreferencesSetAppValue("aggregate" as CFString, on.map { $0 as CFBoolean }, prefsDomain)
+    CFPreferencesAppSynchronize(prefsDomain)
+}
+func isAggregate(_ d: Dev) -> Bool { d.uid == aggUID }
+/// Devices whose clients and layout we care about: the real HDMI endpoints plus the aggregate in front of them.
+func watched() -> [Dev] { outputDevices().filter { isManaged($0) || (aggEnabled && isAggregate($0)) } }
+
+func findAggregate() -> AudioObjectID? {
+    let ids: [AudioObjectID] = getArray(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices)
+    return ids.first { getString($0, kAudioDevicePropertyDeviceUID) == aggUID }
+}
+func aggregateSubUIDs(_ agg: AudioObjectID) -> [String] {
+    var a = addr(kAudioAggregateDevicePropertyFullSubDeviceList); var size = UInt32(MemoryLayout<CFArray?>.size); var arr: Unmanaged<CFArray>? = nil
+    let st = withUnsafeMutablePointer(to: &arr) { AudioObjectGetPropertyData(agg, &a, 0, nil, &size, $0) }
+    guard st == noErr, let cf = arr?.takeRetainedValue() else { return [] }
+    return (cf as? [String]) ?? []
+}
+func setAggregateSub(_ agg: AudioObjectID, _ uid: String) -> (OSStatus, OSStatus) {
+    var a = addr(kAudioAggregateDevicePropertyFullSubDeviceList); var arr = [uid] as CFArray
+    let st = withUnsafeMutablePointer(to: &arr) { AudioObjectSetPropertyData(agg, &a, 0, nil, UInt32(MemoryLayout<CFArray>.size), $0) }
+    var m = addr(kAudioAggregateDevicePropertyMainSubDevice); var cf = uid as CFString
+    let st2 = withUnsafeMutablePointer(to: &cf) { AudioObjectSetPropertyData(agg, &m, 0, nil, UInt32(MemoryLayout<CFString>.size), $0) }
+    return (st, st2)
+}
+func createAggregate(sub uid: String) -> AudioObjectID? {
+    let desc: [String: Any] = [kAudioAggregateDeviceUIDKey: aggUID, kAudioAggregateDeviceNameKey: aggName,
+                               kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: uid]],
+                               kAudioAggregateDeviceMainSubDeviceKey: uid,
+                               kAudioAggregateDeviceIsPrivateKey: 0, kAudioAggregateDeviceIsStackedKey: 0]
+    var id: AudioObjectID = 0
+    let st = AudioHardwareCreateAggregateDevice(desc as CFDictionary, &id)
+    if st != noErr { log("aggregate '\(aggName)': create failed status \(st)") }
+    return st == noErr ? id : nil
+}
+func destroyAggregate() {
+    guard let a = findAggregate() else { return }
+    let tv = outputDevices().first(where: isManaged)
+    if defaultOutput() == a, let t = tv { _ = setDefault(kAudioHardwarePropertyDefaultOutputDevice, t.id); _ = setDefault(kAudioHardwarePropertyDefaultSystemOutputDevice, t.id) }
+    let st = AudioHardwareDestroyAggregateDevice(a)
+    log("aggregate '\(aggName)' destroyed (status \(st))")
+}
+/// Create / repoint the aggregate at the TV endpoint, mirror the speaker layout onto it, and make it the default output.
+func ensureAggregate(verbose: Bool) {
+    guard aggEnabled else { return }
+    let devs = outputDevices()
+    guard let tv = devs.first(where: isManaged) else { return }
+    var agg = findAggregate()
+    if agg == nil {
+        guard let created = createAggregate(sub: tv.uid) else { return }
+        agg = created
+        log("aggregate '\(aggName)' created around \(tv.name) (\(tv.uid))")
+        usleep(700_000)
+    } else if aggregateSubUIDs(agg!) != [tv.uid] {
+        let (st, st2) = setAggregateSub(agg!, tv.uid)
+        log("aggregate '\(aggName)': sub-device -> \(tv.name) (\(tv.uid)) status \(st)/\(st2)")
+        usleep(700_000)
+    }
+    guard let a = agg else { return }
+    let def = defaultOutput()
+    if def != a, let cur = devs.first(where: { $0.id == def }), cur.id == tv.id || cur.transport == "bltn" {
+        let st = setDefault(kAudioHardwarePropertyDefaultOutputDevice, a)
+        let sys = systemOutput(); var st2: OSStatus = noErr
+        if sys == tv.id || sys == def { st2 = setDefault(kAudioHardwarePropertyDefaultSystemOutputDevice, a) }
+        log("default output -> '\(aggName)' (was \(cur.name); status \(st), system \(st2))")
+    } else if verbose && def == a {
+        log("default output is '\(aggName)' (aggregate around \(tv.name))")
+    }
+}
 
 // MARK: - audio clients (macOS 14+ process objects)
 // A Wine game that opens its stream after the TV has settled still plays with crossed channels until the
@@ -337,7 +422,7 @@ final class Watcher: @unchecked Sendable {
     /// layout gets written again so that client maps its channels onto the right speakers.
     func pollClients() {
         var newcomers: [String] = []
-        for d in outputDevices() where isManaged(d) {
+        for d in watched() {
             let cur = runningOutputPIDs(on: d.id)
             if let prev = lastClients[d.id] {
                 for pid in cur.subtracting(prev) { newcomers.append("\(procName(pid)) [\(pid)] on \(d.name)") }
@@ -356,7 +441,7 @@ final class Watcher: @unchecked Sendable {
         let def = defaultOutput()
         if let d = outputDevices().first(where: { $0.id == def }) {
             lastDefaultName = d.name
-            lastDefaultWasManaged = isManaged(d)
+            lastDefaultWasManaged = isManaged(d) || isAggregate(d)
             lastDefaultWasSystemToo = systemOutput() == def
         }
     }
@@ -368,7 +453,7 @@ final class Watcher: @unchecked Sendable {
         let devs = outputDevices()
         let cur = devs.first(where: { $0.id == defaultOutput() })
         if let c = cur, c.transport == "bltn", lastDefaultWasManaged, let name = lastDefaultName,
-           !devs.contains(where: { $0.name == name && isManaged($0) }) {
+           !devs.contains(where: { $0.name == name && (isManaged($0) || isAggregate($0)) }) {
             pendingRestore = name
             pendingRestoreSystem = lastDefaultWasSystemToo
             log("default output fell back to \(c.name) because \(name) vanished; will hand it back when \(name) returns")
@@ -379,7 +464,7 @@ final class Watcher: @unchecked Sendable {
     func restoreIfPossible() {
         guard let name = pendingRestore else { return }
         let devs = outputDevices()
-        guard let d = devs.first(where: { $0.name == name && isManaged($0) }) else { return }
+        guard let d = devs.first(where: { $0.name == name && (isManaged($0) || isAggregate($0)) }) else { return }
         let cur = devs.first(where: { $0.id == defaultOutput() })
         if cur == nil || cur!.transport == "bltn" {
             let st = setDefault(kAudioHardwarePropertyDefaultOutputDevice, d.id)
@@ -409,8 +494,8 @@ final class Watcher: @unchecked Sendable {
             let changed = applyFix(verbose: false)
             if !changed.isEmpty { announce(changed, reason: "periodic re-check") }
             // while a Wine game is playing, quietly re-write the layout each pass (no notification)
-            for d in outputDevices() where isManaged(d) && runningOutputPIDs(on: d.id).contains(where: { procName($0).lowercased().hasSuffix(".exe") }) {
-                _ = applyLayout(d, verbose: false, force: true)
+            if watched().contains(where: { d in runningOutputPIDs(on: d.id).contains(where: { procName($0).lowercased().hasSuffix(".exe") }) }) {
+                for d in watched() { _ = applyLayout(d, verbose: false, force: true) }
             }
             hookDevices()
             restoreIfPossible()
@@ -485,6 +570,12 @@ while !args.isEmpty {
     switch a {
     case "--status": mode = "status"
     case "--clients": mode = "clients"
+    case "--aggregate":
+        guard !args.isEmpty else { print("usage: --aggregate on|off"); exit(2) }
+        let v = args.removeFirst().lowercased()
+        if v == "on" { setPrefsAggregate(true); mode = "once"; print("stable output (aggregate) enabled; the agent creates it and makes it the default output") }
+        else if v == "off" { setPrefsAggregate(false); destroyAggregate(); mode = "status"; print("stable output disabled; aggregate removed, default output back on the TV endpoint") }
+        else { print("usage: --aggregate on|off"); exit(2) }
     case "--once": mode = "once"
     case "--channels":
         guard !args.isEmpty, let n = UInt32(args.removeFirst()), n >= 1 else { print("--channels needs a number"); exit(2) }
@@ -511,7 +602,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --aggregate on|off | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
@@ -520,7 +611,7 @@ while !args.isEmpty {
 switch mode {
 case "status": printStatus()
 case "clients":
-    for d in outputDevices() where isManaged(d) {
+    for d in watched() {
         let pids = runningOutputPIDs(on: d.id).sorted()
         print("\(d.name): " + (pids.isEmpty ? "no process is producing output" : pids.map { "\(procName($0)) [\($0)]" }.joined(separator: ", ")))
     }

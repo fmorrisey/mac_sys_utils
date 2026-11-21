@@ -124,3 +124,21 @@ producing output on each managed device, using the macOS 14+ process objects, an
 re-writes the layout when a new one appears (plus a second pass 3 s later). Logged
 as `new audio client: <name> [pid] on <device>`. `hdmi-audio-stereo --clients`
 prints who is playing right now.
+
+## Stable output: the "TV" aggregate device
+
+Every TV blink makes macOS fall back to the built-in speakers for a couple of
+seconds. A Wine game follows the default output the moment it changes and does
+not come back when the TV returns (Halo, 2026-11-20: streams open on both
+devices, sound on neither you can hear). So the agent now wraps the HDMI
+endpoint in an aggregate device called **TV** and keeps *that* as the default
+output. The aggregate survives the blink; the default never changes; the game
+keeps its one stream and simply resumes when the TV is back.
+
+- created automatically when the HDMI endpoint is present (public, so it shows
+  in Audio MIDI Setup); re-pointed when the TV comes back under a different EDID
+  identity (different device UID)
+- speaker layout and stereo pair are mirrored onto it; `--clients` and the
+  in-game re-writes include it
+- `HDMI_AUDIO_STEREO_AGGREGATE=0` in the plist or `--aggregate off` (destroys it
+  and puts the default output back on the TV endpoint); `--aggregate on`
