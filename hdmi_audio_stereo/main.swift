@@ -406,9 +406,12 @@ final class Watcher: @unchecked Sendable {
         let t = DispatchSource.makeTimerSource(queue: q)
         t.schedule(deadline: .now() + recheckSeconds, repeating: recheckSeconds)
         t.setEventHandler { [self] in
-            let gameOn = outputDevices().contains { d in isManaged(d) && runningOutputPIDs(on: d.id).contains { procName($0).lowercased().hasSuffix(".exe") } }
-            let changed = applyFix(verbose: false, forceLayout: gameOn)
+            let changed = applyFix(verbose: false)
             if !changed.isEmpty { announce(changed, reason: "periodic re-check") }
+            // while a Wine game is playing, quietly re-write the layout each pass (no notification)
+            for d in outputDevices() where isManaged(d) && runningOutputPIDs(on: d.id).contains(where: { procName($0).lowercased().hasSuffix(".exe") }) {
+                _ = applyLayout(d, verbose: false, force: true)
+            }
             hookDevices()
             restoreIfPossible()
         }
