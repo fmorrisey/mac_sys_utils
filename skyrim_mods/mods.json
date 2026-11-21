@@ -688,6 +688,256 @@
    ]
   },
   {
+   "id": "majestic-mountains",
+   "name": "Majestic Mountains (Main)",
+   "nexus": 11052,
+   "file_id": 324452,
+   "archive": [
+    "1. Majestic Mountains Main File*"
+   ],
+   "plugins": [
+    "MajesticMountains_Landscape.esm",
+    "MajesticMountains.esp",
+    "MajesticMountains_Moss.esp",
+    "SunDaytimeNorth_MM_default.esp"
+   ],
+   "notes": "Core + Moss + sun-north + ESL main + AE landscape esm + FX meshes.",
+   "pick": "1. Majestic Mountains Main File 4.02 (226 MB)",
+   "include": [
+    {
+     "from": "00 Majestic Mountains",
+     "to": "Data"
+    },
+    {
+     "from": "01 Moss_ESL",
+     "to": "Data"
+    },
+    {
+     "from": "02 SunDaytimeNorth",
+     "to": "Data"
+    },
+    {
+     "from": "04 Main esl",
+     "to": "Data"
+    },
+    {
+     "from": "06 Landscape esm AE",
+     "to": "Data"
+    },
+    {
+     "from": "07 FxMeshes",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "high-poly-project",
+   "name": "High Poly Project",
+   "nexus": 12029,
+   "file_id": 236420,
+   "archive": [
+    "High Poly Project-12029*"
+   ],
+   "notes": "All 31 content options; skipped the No-Snow-Under-the-Roof / Firewood SnowFix / Campfire patches.",
+   "pick": "High Poly Project v5.3 (376 MB)",
+   "include": [
+    {
+     "from": "001 Hearthfire Breads",
+     "to": "Data"
+    },
+    {
+     "from": "002 Vanilla Breads - includes animation",
+     "to": "Data"
+    },
+    {
+     "from": "003 Farmhouse Stone Walls",
+     "to": "Data"
+    },
+    {
+     "from": "004 Solitude Ropes",
+     "to": "Data"
+    },
+    {
+     "from": "005 Tents",
+     "to": "Data"
+    },
+    {
+     "from": "006 Whiterun Clutter",
+     "to": "Data"
+    },
+    {
+     "from": "007 Windhelm Throne",
+     "to": "Data"
+    },
+    {
+     "from": "008 Bones",
+     "to": "Data"
+    },
+    {
+     "from": "009 Burnt Corpses",
+     "to": "Data"
+    },
+    {
+     "from": "010 Candles",
+     "to": "Data"
+    },
+    {
+     "from": "011 Common Clutter - includes animation",
+     "to": "Data"
+    },
+    {
+     "from": "012 Dragon Parts - Bones and Items",
+     "to": "Data"
+    },
+    {
+     "from": "013 Food",
+     "to": "Data"
+    },
+    {
+     "from": "014 Hagraven",
+     "to": "Data"
+    },
+    {
+     "from": "015 Hay",
+     "to": "Data"
+    },
+    {
+     "from": "016 Horker Tusk",
+     "to": "Data"
+    },
+    {
+     "from": "017 Ingredients",
+     "to": "Data"
+    },
+    {
+     "from": "018 Shrines",
+     "to": "Data"
+    },
+    {
+     "from": "019 Silverware",
+     "to": "Data"
+    },
+    {
+     "from": "020 Smelter Coal",
+     "to": "Data"
+    },
+    {
+     "from": "021 Statues",
+     "to": "Data"
+    },
+    {
+     "from": "022 Wine Bottles",
+     "to": "Data"
+    },
+    {
+     "from": "023 Dungeons",
+     "to": "Data"
+    },
+    {
+     "from": "024 Furniture",
+     "to": "Data"
+    },
+    {
+     "from": "025 Plants",
+     "to": "Data"
+    },
+    {
+     "from": "026 Riften 3D Leaves",
+     "to": "Data"
+    },
+    {
+     "from": "027 Sacks",
+     "to": "Data"
+    },
+    {
+     "from": "028 Satchel",
+     "to": "Data"
+    },
+    {
+     "from": "029 Mead Barrel",
+     "to": "Data"
+    },
+    {
+     "from": "030 Vearmina's Torpor",
+     "to": "Data"
+    },
+    {
+     "from": "031 Firewood Chopping Block - includes animation",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "ruins-clutter-improved",
+   "name": "Ruins Clutter Improved",
+   "nexus": 5870,
+   "file_id": 272388,
+   "archive": [
+    "*-5870-*",
+    "Ruins Clutter Improved*"
+   ],
+   "plugins": "auto",
+   "notes": "Dungeon clutter meshes/textures; pairs with SMIM. Inspect first.",
+   "pick": "Ruins_Clutter_Improved SE 3.2c"
+  },
+  {
+   "id": "assorted-mesh-fixes",
+   "name": "Assorted Mesh Fixes",
+   "nexus": 32117,
+   "file_id": 825109,
+   "archive": [
+    "Assorted Mesh Fixes*32117*"
+   ],
+   "notes": "Mesh bug fixes (2026-10). Inspect first.",
+   "pick": "Assorted Mesh Fixes 0.148 (37 MB)"
+  },
+  {
+   "id": "particle-patch",
+   "name": "Particle Patch (No FOMOD)",
+   "nexus": 65720,
+   "file_id": 790712,
+   "archive": [
+    "Particle Patch (No FOMOD)*"
+   ],
+   "notes": "Mesh/particle fixes; the no-FOMOD file.",
+   "pick": "Particle Patch (No FOMOD) 1.4.6 (33 MB)",
+   "plugins": "auto"
+  },
+  {
+   "id": "hd-lods-textures",
+   "name": "HD LODs Textures SE (1K standard)",
+   "nexus": 3333,
+   "file_id": 122302,
+   "archive": [
+    "HD Lods Textures SE 1K*"
+   ],
+   "notes": "Object LOD textures. Inspect first.",
+   "pick": "HD Lods Textures SE 1K V9.3 Standard version (202 MB)"
+  },
+  {
+   "id": "rustic-clothing",
+   "name": "RUSTIC CLOTHING 2K",
+   "nexus": 4703,
+   "file_id": 154781,
+   "archive": [
+    "RUSTIC CLOTHING - Special Edition - 2K-4703*"
+   ],
+   "notes": "Clothing textures, 2K.",
+   "pick": "RUSTIC CLOTHING - Special Edition - 2K (785 MB)"
+  },
+  {
+   "id": "book-covers",
+   "name": "Book Covers Skyrim (Desaturated)",
+   "nexus": 901,
+   "file_id": 40355,
+   "archive": [
+    "Book Covers Skyrim SE - Desaturated*"
+   ],
+   "plugins": "auto",
+   "notes": "Book textures + plugin.",
+   "pick": "Book Covers Skyrim SE - Desaturated 4.2 (457 MB)"
+  },
+  {
    "id": "happy-little-trees",
    "name": "Happy Little Trees",
    "nexus": 50961,
@@ -763,6 +1013,15 @@
    ],
    "pick": "Cathedral - Weathers 2.23c  (99 MB)",
    "file_id": 398809
+  },
+  {
+   "id": "obsidian-mountain-fogs",
+   "name": "Obsidian Mountain Fogs",
+   "nexus": 13539,
+   "file_id": 434478,
+   "plugins": "auto",
+   "notes": "Rolling distant fogs; compatible with Cathedral Weathers; loads after it.",
+   "pick": "Obsi 1.21"
   },
   {
    "id": "realistic-water-two",
@@ -877,6 +1136,235 @@
    ],
    "plugins": [
     "aMidianBorn_Book of Silence.esp"
+   ]
+  },
+  {
+   "id": "leanwolf-weapons",
+   "name": "LeanWolf's Better-Shaped Weapons",
+   "nexus": 2017,
+   "file_id": 131901,
+   "archive": [
+    "LeanWolfs Better-Shaped Weapons*"
+   ],
+   "notes": "54 option folders: base meshes + arrows per weapon type; Left-hand/Sheath/Frankly variants skipped.",
+   "pick": "LeanWolfs Better-Shaped Weapons Installer v2.1.03 SE (20 MB)",
+   "include": [
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/010 Iron Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/011 Iron",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/020 Ancient Nordic Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/021 Ancient Nordic",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/041 Imperial",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/050 Steel Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/051 Steel",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/060 Skyforge Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/061 Skyforge",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/071 Silver",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/080 Orcish Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/081 Orcish",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/090 Elven Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/091 Elven",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/100 Nord Hero Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/101 Nord Hero",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/103 Nord Hero Runed",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/110 Dwarven Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/111 Dwarven",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/120 Glass Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/121 Glass",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/123 Glass Refraction",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/123 Glass Refraction Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/125 Glass Transparent",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/125 Glass Transparent Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/140 Ebony Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/141 Ebony",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/150 Daedric Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/151 Daedric",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/171 Nightingale",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/181 Dawnbreaker",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/184 Dawnbreaker ENB",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/190 Dragonbone Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/191 Dragonbone",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/193 DragonBling Red Gemling",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/193 DragonBling Red Gemling Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/195 DragonBling Blue Gemling",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/195 DragonBling Blue Gemling Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/197 DragonBling Green Gemling",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/197 DragonBling Green Gemling Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/200 Stalhrim Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/201 Stalhrim",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/203 Stalhrim Refraction",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/203 Stalhrim Refraction Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/205 Stalhrim Transparent",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/210 Nordic Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/211 Nordic",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/221 Scimitar",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/223 ScimiBling",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/231 Mehrunes Razor",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/241 Keening",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/243 Keening Refraction",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/330 Forsworn Arrow",
+     "to": "Data"
+    },
+    {
+     "from": "LeanWolfs Better-Shaped Weapons Installer - SE/340 Falmer Arrow",
+     "to": "Data"
+    }
    ]
   },
   {

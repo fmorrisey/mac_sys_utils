@@ -12,6 +12,7 @@ script keeps that reversible and keeps the plugin load order in one place.
 ./skymod.py uninstall ID ...       # removes the mod's files, restores anything it overwrote
 ./skymod.py plugins                # rewrite Plugins.txt from the manifest order
 ./skymod.py verify                 # every recorded file still present?
+./skymod.py order [--dry-run]      # after installing out of sequence: reinstall later mods whose files got shadowed
 ./skymod.py res [WxH|auto]         # game resolution in SkyrimPrefs.ini; the SKSE swap removes the launcher's Options dialog
 ```
 

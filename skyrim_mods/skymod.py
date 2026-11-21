@@ -16,6 +16,7 @@ Commands
   uninstall ID [ID...]    remove a mod's files (and restore what it overwrote)
   plugins                 (re)write Plugins.txt from the manifest order
   verify                  check that every recorded file is still there
+  order [--dry-run]       restore the manifest's overwrite order after installing a mod out of sequence
   res [WxH|auto]          show or set the game resolution in SkyrimPrefs.ini (no launcher dialog with SKSE); auto = match the display
 
 Only standard library + /usr/bin/bsdtar (reads .7z/.zip/.rar). Python 3.9+.
@@ -479,6 +480,33 @@ def cmd_plugins(ctx, args):
         print("   *" + p)
 
 
+def cmd_order(ctx, args):
+    """Find files where a mod EARLIER in the manifest was installed AFTER a later mod that also provides the
+    file (so the wrong copy is on top), and reinstall the later mods to restore the intended overwrite order."""
+    sts = {m["id"]: ctx.read_state(m["id"]) for m in ctx.mods}
+    sts = {k: v for k, v in sts.items() if v}
+    order = [m["id"] for m in ctx.mods]
+    owners = {}
+    for mid, st in sts.items():
+        for f in st["files"]:
+            owners.setdefault(f.lower(), []).append(mid)
+    fix = {}
+    for mid, st in sts.items():
+        for f in st["files"]:
+            for o in owners[f.lower()]:
+                if o != mid and order.index(o) > order.index(mid) and st["installed_at"] > sts[o]["installed_at"]:
+                    fix.setdefault(o, []).append((f, mid))
+    if not fix:
+        print("overwrite order is consistent"); return
+    for o, fs in fix.items():
+        print(f"  {o}: {len(fs)} files currently shadowed by earlier mods (e.g. {fs[0][0]} from {fs[0][1]})")
+    ids = [o for o in order if o in fix]
+    if args.dry_run:
+        print("would reinstall:", ", ".join(ids)); return
+    args.ids, args.all, args.nexus, args.reinstall = ids, False, None, True
+    cmd_install(ctx, args)
+
+
 def cmd_verify(ctx, args):
     bad = 0
     for mod in ctx.mods:
@@ -546,6 +574,7 @@ def main():
     sub.add_parser("plugins").set_defaults(fn=cmd_plugins)
     r = sub.add_parser("res", help="show or set the game resolution (WxH) in SkyrimPrefs.ini"); r.add_argument("size", nargs="?"); r.add_argument("--borderless", type=int, choices=[0, 1], default=None); r.set_defaults(fn=cmd_res)
     sub.add_parser("verify").set_defaults(fn=cmd_verify)
+    o = sub.add_parser("order", help="reinstall later mods whose files were shadowed by a mod installed afterwards"); o.add_argument("--dry-run", action="store_true"); o.set_defaults(fn=cmd_order)
     args = ap.parse_args()
     try:
         os.nice(10)  # never compete with a running game for CPU
