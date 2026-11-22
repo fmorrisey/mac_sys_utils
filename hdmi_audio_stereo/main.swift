@@ -478,6 +478,20 @@ final class Watcher: @unchecked Sendable {
     }
 
     func restoreIfPossible() {
+        // General rule: the built-in speakers are never the wanted output while a managed display endpoint is
+        // present (2026-11-22: coming from the desk, whose default was the Scarlett, the TV was never handed the default).
+        if restoreDefault, pendingRestore == nil {
+            let devs = outputDevices()
+            if let cur = devs.first(where: { $0.id == defaultOutput() }), cur.transport == "bltn",
+               let tv = devs.first(where: { isManaged($0) || (aggEnabled && isAggregate($0)) }) {
+                let st = setDefault(kAudioHardwarePropertyDefaultOutputDevice, tv.id)
+                let st2 = setDefault(kAudioHardwarePropertyDefaultSystemOutputDevice, tv.id)
+                log("default output was \(cur.name) with \(tv.name) present; moved to \(tv.name) (status \(st), system \(st2))")
+                if st == noErr { notify(title: "Audio on \(tv.name)", body: "Default output moved off the built-in speakers") }
+                noteDefault()
+                return
+            }
+        }
         guard let name = pendingRestore else { return }
         let devs = outputDevices()
         guard let d = devs.first(where: { $0.name == name && (isManaged($0) || isAggregate($0)) }) else { return }
