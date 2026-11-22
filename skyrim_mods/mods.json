@@ -1115,6 +1115,36 @@
    ]
   },
   {
+   "id": "sounds-of-skyrim",
+   "name": "Sounds of Skyrim Complete SE",
+   "nexus": 8286,
+   "file_id": 837937,
+   "plugins": [
+    "soundsofskyrimcomplete.esp",
+    "SoS_Cathedral_Patch.esp",
+    "SoS_ELFX_Patch.esp"
+   ],
+   "archive": [
+    "Sounds of Skyrim Complete SE*"
+   ],
+   "notes": "Full version + Cathedral Weathers and ELFX patches.",
+   "pick": "Sounds of Skyrim Complete SE 3.1.18 (37 MB)",
+   "include": [
+    {
+     "from": "00 SOS/Full",
+     "to": "Data"
+    },
+    {
+     "from": "01 CAT",
+     "to": "Data"
+    },
+    {
+     "from": "02 ELFX",
+     "to": "Data"
+    }
+   ]
+  },
+  {
    "id": "realistic-water-two",
    "name": "Realistic Water Two SE",
    "nexus": 2182,
@@ -1549,6 +1579,135 @@
     },
     {
      "from": "01 USSEP",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "pandorable-males",
+   "name": "Pandorable's NPCs - males",
+   "nexus": 42043,
+   "file_id": 248825,
+   "plugins": [
+    "PAN_NPCs_Males.esp"
+   ],
+   "archive": [
+    "PAN_NPCs - Males SE*"
+   ],
+   "notes": "Core + USSEP plugin; alternate looks skipped.",
+   "pick": "PAN_NPCs - Males SE 1.1 (152 MB)",
+   "include": [
+    {
+     "from": "00 Data",
+     "to": "Data"
+    },
+    {
+     "from": "05 USSEP",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "pandorable-males-2",
+   "name": "Pandorable's NPCs - males 2",
+   "nexus": 50617,
+   "file_id": 248800,
+   "plugins": [
+    "PAN_NPCs_Males2.esp"
+   ],
+   "archive": [
+    "PAN_NPCs - Males 2 SE*"
+   ],
+   "notes": "Core + USSEP plugin; alternate looks skipped.",
+   "pick": "PAN_NPCs - Males 2 SE 1.1 (194 MB)",
+   "include": [
+    {
+     "from": "00 Data",
+     "to": "Data"
+    },
+    {
+     "from": "19 USSEP",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "pandorable-males-3",
+   "name": "Pandorable's NPCs - males 3",
+   "nexus": 110533,
+   "file_id": 491880,
+   "plugins": [
+    "PAN_NPCs_Males3.esp"
+   ],
+   "archive": [
+    "PAN_NPCs - males 3 SE*"
+   ],
+   "notes": "Core; alternate looks skipped.",
+   "pick": "PAN_NPCs - males 3 SE 1.0.4 (196 MB)",
+   "include": [
+    {
+     "from": "00 Data",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "pandorable-dawnguard",
+   "name": "Pandorable's NPCs - Dawnguard (USSEP)",
+   "nexus": 24135,
+   "file_id": 330570,
+   "plugins": "auto",
+   "archive": [
+    "PAN_NPCs - Dawnguard - USSEP*"
+   ],
+   "notes": "Dawnguard NPC faces, USSEP version. Inspect first.",
+   "pick": "PAN_NPCs - Dawnguard - USSEP 1.3 (69 MB)"
+  },
+  {
+   "id": "pandorable-dragonborn",
+   "name": "Pandorable's NPCs - Dragonborn",
+   "nexus": 30680,
+   "file_id": 114755,
+   "plugins": [
+    "PAN_NPCs_DB.esp"
+   ],
+   "archive": [
+    "Pandorable's NPCs - Dragonborn SE*"
+   ],
+   "notes": "Core + USSEP plugin; alternate looks skipped.",
+   "pick": "Pandorable's NPCs - Dragonborn SE 1.1 (71 MB)",
+   "include": [
+    {
+     "from": "PAN_NPCs - Dragonborn SE/00 Data",
+     "to": "Data"
+    },
+    {
+     "from": "PAN_NPCs - Dragonborn SE/12 USSEP",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "audio-overhaul",
+   "name": "Audio Overhaul for Skyrim SE",
+   "nexus": 12466,
+   "file_id": 387525,
+   "plugins": [
+    "Audio Overhaul Skyrim.esp",
+    "AOS_EBT Patch.esp"
+   ],
+   "archive": [
+    "Audio Overhaul for Skyrim (4.1.3)*"
+   ],
+   "notes": "Core + Enhanced Blood Textures patch. Rumble/TrueStorms patches skipped.",
+   "pick": "Audio Overhaul for Skyrim 4.1.3 (256 MB)",
+   "include": [
+    {
+     "from": "00 Core Files",
+     "to": "Data"
+    },
+    {
+     "from": "00 Patch Plugins/AOS_EBT Patch.esp",
      "to": "Data"
     }
    ]
