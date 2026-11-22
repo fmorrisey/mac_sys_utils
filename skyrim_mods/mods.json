@@ -1439,6 +1439,29 @@
    "file_id": 35481
   },
   {
+   "id": "survival-fast-travel",
+   "name": "Survival Mode Refined - Enable Fast Travel",
+   "nexus": 173440,
+   "file_id": 726110,
+   "enabled": false,
+   "archive": [
+    "Survival Enable Fast Travel*"
+   ],
+   "plugins": "auto",
+   "notes": "Single plugin that turns fast travel back on while Survival stays on. Disabled until the user wants it.",
+   "pick": "Survival Enable Fast Travel 1.0"
+  },
+  {
+   "id": "survival-mode-settings",
+   "name": "Survival Mode Settings",
+   "nexus": 58266,
+   "file_id": 243052,
+   "enabled": false,
+   "plugins": "auto",
+   "notes": "ESP-FE + MCM: fast travel allowed at signposts and carriages while Survival stays on; tunable hunger/cold/fatigue. Disabled until the user wants it.",
+   "pick": "Survival Mode Settings v1.5"
+  },
+  {
    "id": "alternate-start",
    "name": "Alternate Start - Live Another Life",
    "nexus": 272,
