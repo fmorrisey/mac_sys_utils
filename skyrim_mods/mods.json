@@ -1443,7 +1443,7 @@
    "name": "Survival Mode Refined - Enable Fast Travel",
    "nexus": 173440,
    "file_id": 726110,
-   "enabled": false,
+   "enabled": true,
    "archive": [
     "Survival Enable Fast Travel*"
    ],
