@@ -18,11 +18,11 @@ PLUGINS='C:\users\fmorrisey\AppData\Local\Skyrim Special Edition\Plugins.txt'
 MYGAMES='C:\users\fmorrisey\Documents\My Games\Skyrim Special Edition'
 
 wrapper_running() { pgrep -f 'Steambuild 32 64bit DXVK[.]app/Contents/(MacOS/wineskinlauncher|SharedSupport/wine)' >/dev/null; }
-set_program() {  # $1 = exe path under C:, $2 = flags
-  $PB -c "Set :'Program Name and Path' $1" "$PLIST"
-  $PB -c "Set :'Program Flags' $2" "$PLIST"
+set_program() {  # $1 = exe path under C:, $2 = flags (plutil keeps backslashes and quotes verbatim; PlistBuddy mangles them)
+  plutil -replace "Program Name and Path" -string "$1" "$PLIST"
+  plutil -replace "Program Flags" -string "$2" "$PLIST"
 }
-restore() { set_program "/Program Files (x86)/Steam/steam.exe" ""; echo "wrapper restored to Steam"; }
+restore() { set_program "/Program Files (x86)/Steam/steam.exe" ""; plutil -replace "Debug Mode" -bool false "$PLIST"; echo "wrapper restored to Steam"; }
 
 case "${1:-}" in
   texgen|dyndolod)
@@ -31,7 +31,9 @@ case "${1:-}" in
     FLAGS="-sse -d:\"$DATA\" -p:\"$PLUGINS\" -m:\"$MYGAMES\" -o:\"$OUT\""
     cp -p "$PLIST" "/tmp/dxvk-Info.plist.bak-$(date +%H%M%S)"
     set_program "$EXE" "$FLAGS"
-    echo "launching $1 in the wrapper; the window appears in a few seconds. When you close it the wrapper goes back to Steam."
+    plutil -replace "Debug Mode" -bool true "$PLIST"   # Wine log -> SharedSupport/Logs/LastRunWine.log for this run
+    echo "wrapper now runs: $EXE $FLAGS"
+    echo "launching $1; the window appears in 10-20 s. When you close it the wrapper goes back to Steam."
     open "$WRAP"
     sleep 20
     while wrapper_running; do sleep 5; done
