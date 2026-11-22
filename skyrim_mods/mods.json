@@ -775,6 +775,61 @@
    ]
   },
   {
+   "id": "simplicity-of-snow",
+   "name": "Simplicity of Snow",
+   "nexus": 56235,
+   "file_id": 809440,
+   "plugins": [
+    "Simplicity of Snow.esp",
+    "Simplicity of Snow - Dwemer Sanctuary Patch.esp"
+   ],
+   "archive": [
+    "Simplicity of Snow*56235*"
+   ],
+   "notes": "Core + Windhelm meshes + snowy bridges + the Dwemer Sanctuary (AE creation) patch; Bruma/JK/Unslaad patches skipped.",
+   "pick": "Simplicity of Snow 0.28 (33 MB)",
+   "include": [
+    {
+     "from": "core",
+     "to": "Data"
+    },
+    {
+     "from": "windhelm meshes",
+     "to": "Data"
+    },
+    {
+     "from": "snowy bridges",
+     "to": "Data"
+    },
+    {
+     "from": "dwemer sanctuary",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "simplicity-of-snow-mm",
+   "name": "Simplicity of Snow - Majestic Mountains patch",
+   "nexus": 84042,
+   "file_id": 360364,
+   "plugins": "auto",
+   "archive": [
+    "Simplicity of MM Vanilla PD*"
+   ],
+   "pick": "Simplicity of MM Vanilla PD 1.1"
+  },
+  {
+   "id": "simplicity-of-snow-br",
+   "name": "Simplicity of Snow - Blended Roads patch",
+   "nexus": 59282,
+   "file_id": 245498,
+   "plugins": "auto",
+   "archive": [
+    "Simplicity of Snow - Blended Roads Patch*"
+   ],
+   "pick": "Simplicity of Snow - Blended Roads Patch 1.0"
+  },
+  {
    "id": "high-poly-project",
    "name": "High Poly Project",
    "nexus": 12029,
@@ -913,6 +968,17 @@
    "plugins": "auto"
   },
   {
+   "id": "high-poly-project-4k",
+   "name": "High Poly Project - 4K textures",
+   "nexus": 12029,
+   "file_id": 36615,
+   "archive": [
+    "HPP - High Poly Project 4K*"
+   ],
+   "notes": "4K textures for HPP's objects; after HPP.",
+   "pick": "High Poly Project - 4k Textures v3.85 (70 MB)"
+  },
+  {
    "id": "ruins-clutter-improved",
    "name": "Ruins Clutter Improved",
    "nexus": 5870,
@@ -962,14 +1028,14 @@
   },
   {
    "id": "rustic-clothing",
-   "name": "RUSTIC CLOTHING 2K",
+   "name": "RUSTIC CLOTHING 4K-2K",
    "nexus": 4703,
-   "file_id": 154781,
+   "file_id": 154783,
    "archive": [
-    "RUSTIC CLOTHING - Special Edition - 2K-4703*"
+    "RUSTIC CLOTHING - Special Edition - 4K-2K-4703*"
    ],
    "notes": "Clothing textures, 2K.",
-   "pick": "RUSTIC CLOTHING - Special Edition - 2K (785 MB)"
+   "pick": "RUSTIC CLOTHING - Special Edition - 4K-2K (1642 MB)"
   },
   {
    "id": "book-covers",
@@ -1258,6 +1324,17 @@
    "plugins": [
     "aMidianBorn_Book of Silence.esp"
    ]
+  },
+  {
+   "id": "amidianborn-upscaled",
+   "name": "aMidianborn Armor Upscaled Textures",
+   "nexus": 37641,
+   "file_id": 147302,
+   "archive": [
+    "aMidianborn Armor Upscaled Textures*"
+   ],
+   "notes": "4K upscales of the aMidianBorn armour textures; after aMidianBorn.",
+   "pick": "aMidianborn Armor Upscaled Textures 1.0 (481 MB)"
   },
   {
    "id": "leanwolf-weapons",
@@ -1686,6 +1763,105 @@
      "to": "Data"
     }
    ]
+  },
+  {
+   "id": "tempered-skins-males",
+   "name": "Tempered Skins for Males (Dressed)",
+   "nexus": 7902,
+   "file_id": 162982,
+   "archive": [
+    "Tempered Skins for Males - Dressed Version*"
+   ],
+   "notes": "Required + hi-poly vanilla underwear (A1+) + clean light-haired (B2) + natural normals (C2) + younger face (D1) + smooth normals (E1); facemarks skipped.",
+   "pick": "Tempered Skins for Males - Dressed Version 2.05 (367 MB)",
+   "include": [
+    {
+     "from": "A - Main files/A0 - Required",
+     "to": "Data"
+    },
+    {
+     "from": "A - Main files/A1+ - Vanilla underwear hi-poly",
+     "to": "Data"
+    },
+    {
+     "from": "B - Body diffuse options/B2 - Clean light haired",
+     "to": "Data"
+    },
+    {
+     "from": "C - Body normal options/C2 - Natural",
+     "to": "Data"
+    },
+    {
+     "from": "D - Face diffuse options/D1 - Younger",
+     "to": "Data"
+    },
+    {
+     "from": "E - Face normal options/E1 - Smooth",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "tempered-skins-females",
+   "name": "Tempered Skins for Females (UNP and Vanilla)",
+   "nexus": 8505,
+   "file_id": 123402,
+   "archive": [
+    "Tempered Skins for Females*"
+   ],
+   "notes": "Common + vanilla body (A8) + clean shaved no-scars (B1) with matching hands + fit normals (C2) + younger face (D1) + E1 normals.",
+   "pick": "Tempered Skins for Females UNP and Vanilla 1.31 (332 MB)",
+   "include": [
+    {
+     "from": "0 - Common files",
+     "to": "Data"
+    },
+    {
+     "from": "A - Body type options/A8 - Vanilla",
+     "to": "Data"
+    },
+    {
+     "from": "B - Body diffuse options/B1 - Clean, shaved, no scars",
+     "to": "Data"
+    },
+    {
+     "from": "B - Body diffuse options/for B1-B6 - Hands for clean body",
+     "to": "Data"
+    },
+    {
+     "from": "C - Body normal options/C2 - Fit",
+     "to": "Data"
+    },
+    {
+     "from": "D - Face diffuse options/D1 - Younger",
+     "to": "Data"
+    },
+    {
+     "from": "E - Face normal options/E1 - Smoother",
+     "to": "Data"
+    }
+   ]
+  },
+  {
+   "id": "vanilla-hair-remake",
+   "name": "Vanilla hair remake",
+   "nexus": 63979,
+   "file_id": 501460,
+   "archive": [
+    "Vanilla hair remake-63979*"
+   ],
+   "notes": "High-poly replacements for every vanilla hair mesh (non-SMP). The optional NPCs plugin is skipped: it would override Pandorable's NPC records.",
+   "pick": "Vanilla hair remake 1.0.2 (8 MB)"
+  },
+  {
+   "id": "eye-reflections",
+   "name": "Improved Eye Reflections and Cube Map SE",
+   "nexus": 78328,
+   "file_id": 329781,
+   "archive": [
+    "Improved Eye Reflections*"
+   ],
+   "pick": "Improved Eye Reflections and Cube Map SE 1.0se (1 MB)"
   },
   {
    "id": "immersive-sounds",
