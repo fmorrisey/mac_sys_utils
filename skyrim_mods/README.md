@@ -79,3 +79,15 @@ then runs `install --all`.
 
 Only standard library Python 3.9 + `/usr/bin/bsdtar` are needed. RAR5 archives
 need `brew install sevenzip` (bsdtar reads 7z, zip and RAR4).
+
+## DynDOLOD (distant LOD) under Wine
+
+`dyndolod.sh` runs sheson's TexGen and DynDOLOD inside the DXVK wrapper by
+temporarily pointing the wrapper's `Program Name and Path` at the tool (unpacked
+to `C:\DynDOLOD`) with `-sse -d: -p: -m: -o:` switches so it needs no registry
+lookup, then restores the wrapper to Steam when the tool exits. Outputs are
+zipped into the downloads folder and installed as the last two manifest entries
+(`dyndolod-texgen-output`, `dyndolod-output`; DynDOLOD.esp and Occlusion.esp
+must load last). Prerequisites installed as ordinary mods: DynDOLOD Resources
+SE 3 and DynDOLOD DLL NG + Scripts. Re-run both tools after adding or removing
+any mod that places objects or trees.
