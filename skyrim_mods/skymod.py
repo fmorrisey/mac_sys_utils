@@ -505,6 +505,11 @@ def cmd_order(ctx, args):
         print("would reinstall:", ", ".join(ids)); return
     args.ids, args.all, args.nexus, args.reinstall = ids, False, None, True
     cmd_install(ctx, args)
+    # reinstalling a mod can shadow a mod later than it in turn; repeat until nothing is left to fix
+    passes = getattr(args, "_passes", 0) + 1
+    if passes < 4:
+        args._passes = passes
+        cmd_order(ctx, args)
 
 
 def cmd_verify(ctx, args):
