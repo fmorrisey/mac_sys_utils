@@ -130,6 +130,27 @@
    ]
   },
   {
+   "id": "landscape-fixes-grass",
+   "name": "Landscape Fixes For Grass Mods",
+   "nexus": 9005,
+   "file_id": 811138,
+   "plugins": [
+    "Landscape Fixes For Grass Mods.esp"
+   ],
+   "notes": "Stops grass growing through roads/floors; loads early. Inspect first.",
+   "pick": "Landscape Fixes For Grass Mods 5.9 (8 MB)",
+   "include": [
+    {
+     "from": "Landscape Fixes For Grass Mods",
+     "to": "Data",
+     "exclude": [
+      "Generic Grass Limiter.esp",
+      "Landscape For Grass Mods - Military Camps.esp"
+     ]
+    }
+   ]
+  },
+  {
    "id": "smim",
    "name": "Static Mesh Improvement Mod (SMIM)",
    "nexus": 659,
@@ -688,6 +709,33 @@
    ]
   },
   {
+   "id": "folkvangr",
+   "name": "Folkvangr - Grass and Landscape Overhaul",
+   "nexus": 44899,
+   "file_id": 196917,
+   "plugins": "auto",
+   "notes": "Grass meshes + grass textures + plugin only; its ground textures are left out so Skyland's landscape stays.",
+   "pick": "Folkvangr 1.3 (309 MB)",
+   "include": [
+    {
+     "from": "Folkvangr - Grass and Landscape Overhaul/data/meshes",
+     "to": "Data/meshes"
+    },
+    {
+     "from": "Folkvangr - Grass and Landscape Overhaul/data/textures/landscape/grass",
+     "to": "Data/textures/landscape/grass"
+    },
+    {
+     "from": "Folkvangr - Grass and Landscape Overhaul/data/Folkvangr - Grass and Landscape Overhaul.esp",
+     "to": "Data"
+    },
+    {
+     "from": "Folkvangr - Grass and Landscape Overhaul/data/Folkvangr - Grass and Landscape Overhaul.ini",
+     "to": "Data"
+    }
+   ]
+  },
+  {
    "id": "majestic-mountains",
    "name": "Majestic Mountains (Main)",
    "nexus": 11052,
@@ -1022,6 +1070,51 @@
    "plugins": "auto",
    "notes": "Rolling distant fogs; compatible with Cathedral Weathers; loads after it.",
    "pick": "Obsi 1.21"
+  },
+  {
+   "id": "lanterns-of-skyrim-ii",
+   "name": "Lanterns Of Skyrim II",
+   "nexus": 30817,
+   "file_id": 692381,
+   "plugins": [
+    "Lanterns Of Skyrim II.esm",
+    "LoS II - Lantern Workers.esp",
+    "LoS II - USSEP patch.esp",
+    "LoS II - SMIM patch.esp",
+    "LoS II - ELFX patch.esp",
+    "LoS II - CRF patch.esp"
+   ],
+   "archive": [
+    "Lanterns Of Skyrim II - FOMOD*"
+   ],
+   "notes": "Core + Lantern Workers + patches for USSEP, SMIM, ELFX, Cutting Room Floor (all installed). Other patch folders are for mods not in this list.",
+   "pick": "Lanterns Of Skyrim II - FOMOD v4.3 (537 MB)",
+   "include": [
+    {
+     "from": "LoS II Main",
+     "to": "Data"
+    },
+    {
+     "from": "LoS II - USSEP",
+     "to": "Data"
+    },
+    {
+     "from": "LoS II - SMIM",
+     "to": "Data"
+    },
+    {
+     "from": "LoS II - ELFX",
+     "to": "Data"
+    },
+    {
+     "from": "LoS II - CRF",
+     "to": "Data"
+    },
+    {
+     "from": "LoS II - Lantern Workers",
+     "to": "Data"
+    }
+   ]
   },
   {
    "id": "realistic-water-two",
@@ -1437,6 +1530,30 @@
    "notes": "Hides HUD elements until needed. Needs SkyUI.",
    "pick": "Immersive HUD - iHUD 0.2b  (.rar)",
    "file_id": 35481
+  },
+  {
+   "id": "pandorable-npcs",
+   "name": "Pandorable's NPCs",
+   "nexus": 19012,
+   "file_id": 229960,
+   "plugins": [
+    "PAN_NPCs.esp"
+   ],
+   "archive": [
+    "PAN_NPCs-19012*"
+   ],
+   "notes": "Core facegen + the USSEP-compatible plugin; the four alternate-look options skipped.",
+   "pick": "PAN_NPCs 1.4 (181 MB)",
+   "include": [
+    {
+     "from": "00 Data",
+     "to": "Data"
+    },
+    {
+     "from": "01 USSEP",
+     "to": "Data"
+    }
+   ]
   },
   {
    "id": "survival-fast-travel",
