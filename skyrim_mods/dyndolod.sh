@@ -28,7 +28,9 @@ case "${1:-}" in
   texgen|dyndolod)
     if wrapper_running; then echo "the Skyrim wrapper is running (Steam or the game); quit it first"; exit 1; fi
     if [ "$1" = texgen ]; then EXE="/DynDOLOD/TexGenx64.exe"; OUT='C:\DynDOLOD\TexGen_Output'; else EXE="/DynDOLOD/DynDOLODx64.exe"; OUT='C:\DynDOLOD\DynDOLOD_Output'; fi
-    FLAGS="-sse -d:\"$DATA\" -p:\"$PLUGINS\" -m:\"$MYGAMES\" -o:\"$OUT\""
+    # -m needs a trailing backslash (TexGen appends Skyrim.ini to it verbatim); a backslash before the closing quote
+    # has to be doubled or the argument parser eats the quote. -d and -o get their trailing slash added by the tool.
+    FLAGS="-sse -d:\"$DATA\" -p:\"$PLUGINS\" -m:\"$MYGAMES\\\\\" -o:\"$OUT\""
     cp -p "$PLIST" "/tmp/dxvk-Info.plist.bak-$(date +%H%M%S)"
     set_program "$EXE" "$FLAGS"
     plutil -replace "Debug Mode" -bool true "$PLIST"   # Wine log -> SharedSupport/Logs/LastRunWine.log for this run
