@@ -2019,6 +2019,38 @@
    "pick": "AOS - ISC Integration 1.1.0"
   },
   {
+   "id": "acoustic-space-fixes",
+   "name": "Acoustic Space Improvement Fixes",
+   "nexus": 78992,
+   "file_id": 629459,
+   "plugins": [
+    "AcousticTemplateFixes.esp",
+    "AcousticTemplateFixes_USSEP.esp",
+    "AcousticTemplateFixes_CC_Seducers.esp",
+    "AcousticTemplateFixes_CC_Farming.esp"
+   ],
+   "notes": "Main + USSEP patch + Saints & Seducers patch + Farming patch; Reverb Interior Sounds patch not needed.",
+   "pick": "Acoustic Space Improvement Fixes (Plugin Version) 1.3.3",
+   "include": [
+    {
+     "from": "00 Main Files",
+     "to": "Data"
+    },
+    {
+     "from": "01 Patches/AcousticTemplateFixes_USSEP.esp",
+     "to": "Data"
+    },
+    {
+     "from": "01 Patches/AcousticTemplateFixes_CC_Seducers.esp",
+     "to": "Data"
+    },
+    {
+     "from": "01 Patches/AcousticTemplateFixes_CC_Farming.esp",
+     "to": "Data"
+    }
+   ]
+  },
+  {
    "id": "survival-fast-travel",
    "name": "Survival Mode Refined - Enable Fast Travel",
    "nexus": 173440,
