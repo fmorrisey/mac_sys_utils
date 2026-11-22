@@ -153,3 +153,13 @@ input switch did not clear it. `--reinit` bounces the endpoint's channel count
 picture for up to 20 s and has put the lid-closed Mac to sleep before, so the
 command refuses to run while a Wine game is playing. The agent puts the format
 and layout back when the endpoint returns. Verify with `speaker_test`.
+
+## Keep-alive stream
+
+The Mac only sends HDMI audio while some app is playing. Every time the stream
+restarts, the TV and the soundbar renegotiate the link, and on this Samsung +
+Sonos pair some of those negotiations land on stereo (the rears fold into the
+bar) until someone toggles the TV's digital output format or power-cycles it.
+The agent therefore keeps a silent output stream running on the TV endpoint for
+as long as it is present, so the link never drops and the bar locks onto
+6-channel PCM once. `HDMI_AUDIO_STEREO_KEEPALIVE=0` or `--keepalive off` disables it.

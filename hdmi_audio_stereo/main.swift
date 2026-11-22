@@ -278,7 +278,7 @@ func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
 func printStatus() {
     let def = defaultOutput()
     let src = prefsTarget() != nil ? "runtime override via --target" : "plist/env default"
-    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled))")
+    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled), keep-alive=\(keepaliveEnabled ? "on" : "off"))")
     for d in outputDevices() {
         let flag = d.id == def ? "*" : " "
         let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : (isAggregate(d) ? "stable output (aggregate around the TV)" : "ignored")
@@ -392,6 +392,40 @@ func ensureAggregate(verbose: Bool) {
     }
 }
 
+// MARK: - keep-alive: a silent stream on each managed endpoint so the HDMI audio link never stops
+// The Mac only sends HDMI audio while some app plays; every restart of the stream makes the TV and the
+// soundbar renegotiate, and some of those land on stereo (2026-11-20..22). A permanent silent IOProc keeps
+// the link up so the bar locks onto 6-channel PCM once.
+func prefsKeepalive() -> Bool? {
+    guard let v = CFPreferencesCopyAppValue("keepalive" as CFString, prefsDomain) else { return nil }
+    return (v as? Bool) ?? ((v as? NSNumber)?.boolValue)
+}
+var keepaliveEnabled: Bool { prefsKeepalive() ?? ((env["HDMI_AUDIO_STEREO_KEEPALIVE"] ?? "1") != "0") }
+func setPrefsKeepalive(_ on: Bool?) {
+    CFPreferencesSetAppValue("keepalive" as CFString, on.map { $0 as CFBoolean }, prefsDomain)
+    CFPreferencesAppSynchronize(prefsDomain)
+}
+var keepaliveProcs: [AudioObjectID: AudioDeviceIOProcID] = [:]
+func startKeepalive(_ d: Dev) {
+    guard keepaliveEnabled else { return }
+    if let pid = keepaliveProcs[d.id] { _ = AudioDeviceStart(d.id, pid); return }   // idempotent; also restarts after a format change
+    var procID: AudioDeviceIOProcID? = nil
+    let st = AudioDeviceCreateIOProcIDWithBlock(&procID, d.id, nil) { _, _, _, outOutput, _ in
+        for buf in UnsafeMutableAudioBufferListPointer(outOutput) {
+            if let m = buf.mData { memset(m, 0, Int(buf.mDataByteSize)) }
+        }
+    }
+    guard st == noErr, let pid = procID else { log("\(d.name): keep-alive IOProc could not be created (status \(st))"); return }
+    let st2 = AudioDeviceStart(d.id, pid)
+    if st2 == noErr { keepaliveProcs[d.id] = pid; log("\(d.name): keep-alive silent stream started") }
+    else { AudioDeviceDestroyIOProcID(d.id, pid); log("\(d.name): keep-alive start failed (status \(st2))") }
+}
+func pruneKeepalive(present: Set<AudioObjectID>) {
+    for (id, pid) in keepaliveProcs where !present.contains(id) {
+        AudioDeviceStop(id, pid); AudioDeviceDestroyIOProcID(id, pid); keepaliveProcs[id] = nil
+    }
+}
+
 // MARK: - audio clients (macOS 14+ process objects)
 // A Wine game that opens its stream after the TV has settled still plays with crossed channels until the
 // preferred layout is written again (seen with Halo 2026-11-13/14 and Skyrim 2026-11-14). So: watch which
@@ -409,7 +443,8 @@ func runningOutputPIDs(on dev: AudioObjectID) -> Set<pid_t> {
         guard (getValue(p, selProcIsRunningOutput, kAudioObjectPropertyScopeGlobal, UInt32(0)) ?? 0) != 0 else { continue }
         let devs: [AudioObjectID] = getArray(p, selProcDevices, kAudioObjectPropertyScopeOutput)
         guard devs.contains(dev) else { continue }
-        if let pid = getValue(p, selProcPID, kAudioObjectPropertyScopeGlobal, pid_t(0)), pid > 0 { out.insert(pid) }
+        if let pid = getValue(p, selProcPID, kAudioObjectPropertyScopeGlobal, pid_t(0)), pid > 0, pid != getpid(),
+           procName(pid) != "hdmi-audio-stereo" { out.insert(pid) }   // the agent's own keep-alive stream is not a client
     }
     return out
 }
@@ -548,7 +583,10 @@ final class Watcher: @unchecked Sendable {
     }
 
     func hookDevices() {
-        for d in outputDevices() where isManaged(d) {
+        let devs = outputDevices()
+        pruneKeepalive(present: Set(devs.map { $0.id }))
+        for d in devs where isManaged(d) { startKeepalive(d) }
+        for d in devs where isManaged(d) {
             if !hooked.contains(d.id) {
                 hooked.insert(d.id)
                 listen(d.id, kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeOutput, "\(d.name) stream configuration changed")
@@ -601,6 +639,11 @@ while !args.isEmpty {
     case "--status": mode = "status"
     case "--clients": mode = "clients"
     case "--reinit": mode = "reinit"
+    case "--keepalive":
+        guard !args.isEmpty else { print("usage: --keepalive on|off"); exit(2) }
+        let v = args.removeFirst().lowercased()
+        if v == "on" || v == "off" { setPrefsKeepalive(v == "on"); print("keep-alive \(v); the agent follows it within ~15 s") ; exit(0) }
+        print("usage: --keepalive on|off"); exit(2)
     case "--aggregate-layout":
         guard !args.isEmpty else { print("--aggregate-layout needs labels like 1,2,3,4,5,6 or 'default'"); exit(2) }
         let v = args.removeFirst()
@@ -639,7 +682,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit | --aggregate on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit | --aggregate on|off | --keepalive on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }

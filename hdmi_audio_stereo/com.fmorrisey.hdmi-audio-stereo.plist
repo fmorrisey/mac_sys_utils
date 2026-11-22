@@ -38,6 +38,8 @@
         <key>HDMI_AUDIO_STEREO_AGGREGATE_NAME</key><string>TV</string>
         <!-- manage only these output devices by name (the TV); without it every HDMI/DisplayPort audio output is managed -->
         <key>HDMI_AUDIO_STEREO_DEVICES</key><string>SAMSUNG</string>
+        <!-- keep a silent stream running on the TV endpoint so the HDMI audio link never stops (0 to disable; --keepalive on|off at runtime) -->
+        <key>HDMI_AUDIO_STEREO_KEEPALIVE</key><string>1</string>
         <key>HDMI_AUDIO_STEREO_NOTIFY</key>
         <string>1</string>
         <!-- Hand the default output back to a display endpoint that vanished and returned (1), or leave macOS's fallback alone (0). -->
