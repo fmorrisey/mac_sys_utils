@@ -141,12 +141,8 @@
    "pick": "Landscape Fixes For Grass Mods 5.9 (8 MB)",
    "include": [
     {
-     "from": "Landscape Fixes For Grass Mods",
-     "to": "Data",
-     "exclude": [
-      "Generic Grass Limiter.esp",
-      "Landscape For Grass Mods - Military Camps.esp"
-     ]
+     "from": "Landscape Fixes For Grass Mods/01 Main Mod",
+     "to": "Data"
     }
    ]
   },
@@ -913,7 +909,8 @@
      "from": "031 Firewood Chopping Block - includes animation",
      "to": "Data"
     }
-   ]
+   ],
+   "plugins": "auto"
   },
   {
    "id": "ruins-clutter-improved",
@@ -960,7 +957,8 @@
     "HD Lods Textures SE 1K*"
    ],
    "notes": "Object LOD textures. Inspect first.",
-   "pick": "HD Lods Textures SE 1K V9.3 Standard version (202 MB)"
+   "pick": "HD Lods Textures SE 1K V9.3 Standard version (202 MB)",
+   "plugins": "auto"
   },
   {
    "id": "rustic-clothing",
