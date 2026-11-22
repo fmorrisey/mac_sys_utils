@@ -1056,7 +1056,7 @@
    "plugins": [
     "HappyLittleTrees.esp"
    ],
-   "notes": "Core trees + core plugin. Skipped Additional Trees, scaled trees, snow variants. REPLACED by Nature of the Wild Lands on 2026-11-21.",
+   "notes": "Core trees + core plugin. Skipped Additional Trees, scaled trees, snow variants.",
    "archive": [
     "Happy Little Trees-50961-2-03*.7z"
    ],
@@ -1072,7 +1072,7 @@
      "to": "Data"
     }
    ],
-   "enabled": false
+   "enabled": true
   },
   {
    "id": "happy-little-trees-patch",
@@ -1081,10 +1081,21 @@
    "archive": [
     "HLT Patch-50961*.7z"
    ],
-   "notes": "Update file for Happy Little Trees; install after the main file. REPLACED by Nature of the Wild Lands on 2026-11-21.",
+   "notes": "Update file for Happy Little Trees; install after the main file.",
    "pick": "HLT Patch 2.05  (under Updates on the same page)",
    "file_id": 454550,
-   "enabled": false
+   "enabled": true
+  },
+  {
+   "id": "hlt-dyndolod-addon",
+   "name": "Happy Little Trees Add-On - DynDOLOD 3",
+   "nexus": 56907,
+   "file_id": 607548,
+   "archive": [
+    "Happy Little Trees 3D LOD - Quality*"
+   ],
+   "notes": "Tree LOD assets for DynDOLOD 3. Inspect first.",
+   "pick": "Happy Little Trees 3D LOD - Quality 2.1.2"
   },
   {
    "id": "notwl",
@@ -1097,7 +1108,7 @@
    "archive": [
     "Nature of the Wild Lands-63604*"
    ],
-   "notes": "Core + LOD resources + non-ENB nirnroot. Seasons/Solstheim/autumn variants skipped.",
+   "notes": "Core + LOD resources + non-ENB nirnroot. Seasons/Solstheim/autumn variants skipped. Disabled 2026-11-21: its LOD needs TexGen's renderer (OpenGL 3.0), which Wine on macOS cannot provide.",
    "pick": "Nature of the Wild Lands 3.14 (1634 MB)",
    "include": [
     {
@@ -1112,7 +1123,8 @@
      "from": "nirnroot no enb light",
      "to": "Data"
     }
-   ]
+   ],
+   "enabled": false
   },
   {
    "id": "notwl-patches",
@@ -1136,7 +1148,8 @@
     "Nature of the Wild Lands 3.0 - 3D hybrid LOD*"
    ],
    "notes": "3D tree LOD assets for DynDOLOD.",
-   "pick": "3D hybrid LOD 1.2.2 (16 MB)"
+   "pick": "3D hybrid LOD 1.2.2 (16 MB)",
+   "enabled": false
   },
   {
    "id": "dyndolod-resources",
