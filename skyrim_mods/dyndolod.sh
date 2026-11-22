@@ -22,7 +22,7 @@ set_program() {  # $1 = exe path under C:, $2 = flags (plutil keeps backslashes 
   plutil -replace "Program Name and Path" -string "$1" "$PLIST"
   plutil -replace "Program Flags" -string "$2" "$PLIST"
 }
-restore() { set_program "/Program Files (x86)/Steam/steam.exe" ""; plutil -replace "Debug Mode" -bool false "$PLIST"; echo "wrapper restored to Steam"; }
+restore() { set_program "/Program Files (x86)/Steam/steam.exe" ""; echo "wrapper restored to Steam"; }   # Debug Mode stays on: the Skyrim wrapper keeps Wine's log by choice
 
 case "${1:-}" in
   texgen|dyndolod)

@@ -91,3 +91,12 @@ zipped into the downloads folder and installed as the last two manifest entries
 must load last). Prerequisites installed as ordinary mods: DynDOLOD Resources
 SE 3 and DynDOLOD DLL NG + Scripts. Re-run both tools after adding or removing
 any mod that places objects or trees.
+
+## Wrapper logging
+
+The DXVK wrapper runs with `Debug Mode` on (Wine's and DXVK's stderr go to
+`Contents/SharedSupport/Logs/LastRunWine.log`, overwritten per launch) and
+`CLI Custom Commands` = `export MVK_CONFIG_RESUME_LOST_DEVICE=1;` so MoltenVK
+tries to carry on after a Metal device loss instead of handing DXVK a dead
+device. Set after an unexplained `winevulkan.dll` assertion
+(`vkDestroyImageView`) three hours into a session on 2026-11-21.
