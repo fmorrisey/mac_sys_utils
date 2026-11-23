@@ -39,7 +39,7 @@
         <!-- manage only these output devices by name (the TV); without it every HDMI/DisplayPort audio output is managed -->
         <key>HDMI_AUDIO_STEREO_DEVICES</key><string>SAMSUNG</string>
         <!-- keep a silent stream running on the TV endpoint so the HDMI audio link never stops (0 to disable; --keepalive on|off at runtime) -->
-        <!-- bounce the channel count 6->2->6 ~25 s after every link-up so the TV hands the soundbar 5.1 (0 to disable; --bounce on|off at runtime) -->
+        <!-- settle-then-raise: hold a freshly linked endpoint at 2 ch for BOUNCE_DELAY seconds, then raise it to the target once (0 to disable; --bounce on|off at runtime) -->
         <key>HDMI_AUDIO_STEREO_BOUNCE</key><string>1</string>
         <key>HDMI_AUDIO_STEREO_BOUNCE_DELAY</key><string>25</string>
         <key>HDMI_AUDIO_STEREO_KEEPALIVE</key><string>1</string>

@@ -249,6 +249,7 @@ func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
         if applyLayout(a, verbose: verbose, force: forceLayout) && !changed.contains(a.name) { changed.append(a.name) }
     }
     for d in outputDevices() where isManaged(d) {
+        if let h = holdUntil[d.uid], h > Date() { continue }   // link settling: leave it at 2 ch for now (settle-then-raise)
         defer { if applyLayout(d, verbose: verbose, force: forceLayout) && !changed.contains(d.name) { changed.append(d.name) } }
         for s in outputStreams(d) {
             guard let cur = getValue(s, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
@@ -278,7 +279,7 @@ func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
 func printStatus() {
     let def = defaultOutput()
     let src = prefsTarget() != nil ? "runtime override via --target" : "plist/env default"
-    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled), keep-alive=\(keepaliveEnabled ? "on" : "off"), bounce-after-link-up=\(bounceEnabled ? "on" : "off"))")
+    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled), keep-alive=\(keepaliveEnabled ? "on" : "off"), settle-then-raise=\(bounceEnabled ? "on, \(Int(settleDelay)) s" : "off"))")
     for d in outputDevices() {
         let flag = d.id == def ? "*" : " "
         let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : (isAggregate(d) ? "stable output (aggregate around the TV)" : "ignored")
@@ -426,11 +427,13 @@ func pruneKeepalive(present: Set<AudioObjectID>) {
     }
 }
 
-// MARK: - channel-count bounce after a link-up
-// After every HDMI link-up (plug-in, TV power-cycle, Mac wake) the Samsung TV hands the Sonos a stereo stream
-// (rears fold into the bar) until something makes it re-negotiate. Verified by ear 2026-11-22 17:14: bouncing the
-// Mac's channel count 6 -> 2 -> 6 once the link has settled brings the rears back; before that every link-up
-// needed a toggle on the TV. The agent does this automatically ~25 s after a managed endpoint (re)appears.
+// MARK: - settle-then-raise after a link-up
+// After every HDMI link-up (plug-in, TV power-cycle / HPD pulse, Mac wake) the endpoint comes up at 2 ch. Raising it
+// to 6 ch right away (what this agent did until 2026-11-22) leaves the Sonos on a stereo stream: the TV latches the
+// format it hands the soundbar while the eARC link is still coming up and ignores the change. A format change made
+// once the link has settled is honoured (verified by ear 17:14 and 17:40, bounces 6->2->6 minutes after link-up).
+// So: hold a managed endpoint at 2 ch for a settle delay, then raise it to the target once. Going 6 -> 2 under a
+// playing Wine game drops the HDMI link for ~1.5 s (17:55), so --reinit under a game needs --force.
 func prefsBounce() -> Bool? {
     guard let v = CFPreferencesCopyAppValue("bounce" as CFString, prefsDomain) else { return nil }
     return (v as? Bool) ?? ((v as? NSNumber)?.boolValue)
@@ -440,26 +443,38 @@ func setPrefsBounce(_ on: Bool?) {
     CFPreferencesSetAppValue("bounce" as CFString, on.map { $0 as CFBoolean }, prefsDomain)
     CFPreferencesAppSynchronize(prefsDomain)
 }
-let bounceDelay: TimeInterval = Double(env["HDMI_AUDIO_STEREO_BOUNCE_DELAY"] ?? "") ?? 25   // after the last (re)appearance
-let bounceCooldown: TimeInterval = 90   // the bounce itself resets the endpoint; never chain bounces
-/// Sets the stream to the other channel count, holds 3 s, then sets the target count. Returns true if both writes succeeded.
+let settleDelay: TimeInterval = Double(env["HDMI_AUDIO_STEREO_SETTLE"] ?? env["HDMI_AUDIO_STEREO_BOUNCE_DELAY"] ?? "") ?? 25
+var holdUntil = [String: Date]()     // uid -> earliest moment the raise may happen (applyFix leaves the device alone until then)
+var holdExpired = [String: Date]()   // uid -> last expiry (no re-hold loop when the raise keeps failing)
+/// Sets every output stream of the device to an n-channel PCM format at its current rate. True if a write succeeded.
 @discardableResult
-func bounceFormat(_ d: Dev, out: (String) -> Void) -> Bool {
+func setChannels(_ d: Dev, _ n: UInt32, out: (String) -> Void) -> Bool {
     var ok = false
     for st in outputStreams(d) {
         guard let cur = getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
-        let other: UInt32 = cur.mChannelsPerFrame == 2 ? targetChannels : 2
-        guard var tmp = stereoCandidate(for: st, current: cur, channels: other) else { out("\(d.name): no \(other)-ch format to bounce through"); continue }
+        if cur.mChannelsPerFrame == n { out("\(d.name): already \(describe(cur))"); ok = true; continue }
+        guard var want = stereoCandidate(for: st, current: cur, channels: n) else { out("\(d.name): no \(n)-ch format at \(Int(cur.mSampleRate)) Hz"); continue }
         var a = addr(kAudioStreamPropertyPhysicalFormat)
-        let s1 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &tmp)
-        out("\(d.name): \(describe(cur)) -> \(describe(tmp)) (status \(s1)); holding 3 s, then back")
-        sleep(3)
-        var back = stereoCandidate(for: st, current: cur, channels: targetChannels) ?? cur
-        let s2 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &back)
-        out("\(d.name): -> \(describe(back)) (status \(s2))")
-        if s1 == noErr && s2 == noErr { ok = true }
+        let st1 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &want)
+        out("\(d.name): \(describe(cur)) -> \(describe(want)) (status \(st1))")
+        if st1 == noErr { ok = true }
     }
     return ok
+}
+/// The quick 6 -> 2 -> 6 bounce (3 s), kept for --reinit --quick: proven twice with no game running.
+@discardableResult
+func bounceFormat(_ d: Dev, out: (String) -> Void) -> Bool {
+    let a = setChannels(d, 2, out: out)
+    sleep(3)
+    guard let d2 = outputDevices().first(where: { $0.uid == d.uid }) else { out("\(d.name): endpoint vanished during the bounce"); return false }
+    let b = setChannels(d2, targetChannels, out: out)
+    return a && b
+}
+/// The watch agent's pid, so the CLI can leave the raise to it.
+func agentPID() -> pid_t? {
+    guard let v = CFPreferencesCopyAppValue("agent_pid" as CFString, prefsDomain) as? NSNumber else { return nil }
+    let pid = pid_t(v.int32Value)
+    return (pid > 0 && kill(pid, 0) == 0) ? pid : nil
 }
 
 // MARK: - audio clients (macOS 14+ process objects)
@@ -505,34 +520,43 @@ final class Watcher: @unchecked Sendable {
     var lastClients = [AudioObjectID: Set<pid_t>]()
     var lastClientRewrite = Date.distantPast
     var startupDone = false
-    var bounceWork: DispatchWorkItem?
-    var lastBounce = Date.distantPast
+    var holdWork = [String: DispatchWorkItem]()
 
-    /// A managed endpoint got a new object id: the HDMI link came up (plug-in, TV power-cycle, Mac wake, or the
-    /// display agent's mode switch). Bounce the channel count once the link has settled; debounced per appearance.
-    func armBounce(_ d: Dev) {
-        guard bounceEnabled, startupDone else { return }
-        guard Date().timeIntervalSince(lastBounce) > bounceCooldown else { return }   // that was our own bounce resetting the endpoint
-        bounceWork?.cancel()
-        let uid = d.uid
-        let w = DispatchWorkItem { [self] in runBounce(uid: uid) }
-        bounceWork = w
-        log("\(d.name) (re)appeared; channel-count bounce in \(Int(bounceDelay)) s so the TV hands the soundbar 5.1")
-        q.asyncAfter(deadline: .now() + bounceDelay, execute: w)
+    func fix(verbose: Bool, forceLayout: Bool = false) -> [String] { noteHolds(); return applyFix(verbose: verbose, forceLayout: forceLayout) }
+
+    /// A managed endpoint below the target = the link just came up (or someone set 2 ch on purpose). Hold it there
+    /// for the settle delay, then raise it once. Called before every fix pass.
+    func noteHolds() {
+        guard bounceEnabled else { return }
+        for d in outputDevices() where isManaged(d) {
+            if holdUntil[d.uid] != nil { continue }
+            if let e = holdExpired[d.uid], Date().timeIntervalSince(e) < 60 { continue }
+            let below = outputStreams(d).contains { st in
+                (getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())?.mChannelsPerFrame ?? targetChannels) < targetChannels
+            }
+            guard below else { continue }
+            holdUntil[d.uid] = Date().addingTimeInterval(settleDelay)
+            log("\(d.name) is below \(targetChannels) ch (link just came up?); raising it in \(Int(settleDelay)) s so the TV hands the soundbar \(targetChannels) ch")
+            let uid = d.uid
+            let w = DispatchWorkItem { [self] in raise(uid: uid) }
+            holdWork[uid] = w
+            q.asyncAfter(deadline: .now() + settleDelay, execute: w)
+        }
     }
 
-    func runBounce(uid: String) {
-        bounceWork = nil
-        guard let d = outputDevices().first(where: { $0.uid == uid && isManaged($0) }) else { log("bounce skipped: endpoint gone"); return }
-        if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
-            log("bounce skipped: \(procName(pid)) is playing on \(d.name) (a bounce would kill its audio); run --reinit after the game")
-            return
-        }
-        lastBounce = Date()
-        let ok = bounceFormat(d) { log($0) }
-        _ = applyLayout(d, verbose: false, force: true)
-        log("bounce done on \(d.name): \(ok ? "OK" : "a write failed")")
-        if ok { notify(title: "HDMI audio re-synced", body: "\(d.name): channel count bounced so the soundbar locks onto 5.1") }
+    func raise(uid: String) {
+        holdUntil[uid] = nil; holdWork[uid] = nil; holdExpired[uid] = Date()
+        guard let d = outputDevices().first(where: { $0.uid == uid && isManaged($0) }) else { log("raise skipped: endpoint gone"); return }
+        let changed = fix(verbose: false, forceLayout: true)
+        let ok = changed.contains(d.name) && outputChannels(d.id) == Int(targetChannels)
+        log("raised after settle: \(d.name) -> \(ok ? "\(targetChannels) ch OK" : "no change (\(outputChannels(d.id)) out ch)")")
+        if ok { notify(title: "HDMI audio \(targetChannels) ch", body: "\(d.name) raised after the link settled") }
+    }
+
+    /// The endpoint got a new object id (link-up): forget any hold from the previous link so the delay starts afresh.
+    func restartHold(uid: String) {
+        guard startupDone else { return }
+        holdWork[uid]?.cancel(); holdWork[uid] = nil; holdUntil[uid] = nil; holdExpired[uid] = nil
     }
 
     /// Every few seconds: did a new process start producing output on a managed device? Then the
@@ -550,8 +574,8 @@ final class Watcher: @unchecked Sendable {
         log("new audio client: " + newcomers.joined(separator: ", "))
         guard Date().timeIntervalSince(lastClientRewrite) > 5 else { return }
         lastClientRewrite = Date()
-        _ = applyFix(verbose: false, forceLayout: true)
-        q.asyncAfter(deadline: .now() + 3.0) { [self] in _ = applyFix(verbose: false, forceLayout: true) }
+        _ = fix(verbose: false, forceLayout: true)
+        q.asyncAfter(deadline: .now() + 3.0) { [self] in _ = fix(verbose: false, forceLayout: true) }
     }
 
     func noteDefault() {
@@ -618,12 +642,13 @@ final class Watcher: @unchecked Sendable {
             onDefaultOutputChanged(); schedule("default output changed")
         }
         hookDevices()
-        startupDone = true   // endpoints present at startup are not "appearances": an agent restart must not bounce
+        startupDone = true
+        CFPreferencesSetAppValue("agent_pid" as CFString, NSNumber(value: Int32(getpid())), prefsDomain); CFPreferencesAppSynchronize(prefsDomain)
         // belt and braces: a quiet periodic re-check in case a notification is missed
         let t = DispatchSource.makeTimerSource(queue: q)
         t.schedule(deadline: .now() + recheckSeconds, repeating: recheckSeconds)
         t.setEventHandler { [self] in
-            let changed = applyFix(verbose: false)
+            let changed = fix(verbose: false)
             if !changed.isEmpty { announce(changed, reason: "periodic re-check") }
             // while a Wine game is playing, quietly re-write the layout each pass (no notification)
             if watched().contains(where: { d in runningOutputPIDs(on: d.id).contains(where: { procName($0).lowercased().hasSuffix(".exe") }) }) {
@@ -656,7 +681,7 @@ final class Watcher: @unchecked Sendable {
         for d in devs where isManaged(d) {
             if !hooked.contains(d.id) {
                 hooked.insert(d.id)
-                armBounce(d)
+                restartHold(uid: d.uid)
                 listen(d.id, kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeOutput, "\(d.name) stream configuration changed")
                 listen(d.id, kAudioDevicePropertyDeviceIsRunning, kAudioObjectPropertyScopeGlobal, "\(d.name) IO started/stopped")
             }
@@ -674,9 +699,9 @@ final class Watcher: @unchecked Sendable {
     func schedule(_ why: String) {
         pending?.cancel()
         let w = DispatchWorkItem { [self] in
-            fixNow(reason: why, verbose: false); hookDevices(); restoreIfPossible()
+            hookDevices(); fixNow(reason: why, verbose: false); restoreIfPossible()
             q.asyncAfter(deadline: .now() + 4.0) { [self] in
-                let changed = applyFix(verbose: false, forceLayout: true)
+                let changed = fix(verbose: false, forceLayout: true)
                 if !changed.isEmpty { announce(changed, reason: why + " (second pass)") }
                 hookDevices(); restoreIfPossible()
             }
@@ -686,7 +711,7 @@ final class Watcher: @unchecked Sendable {
     }
 
     func fixNow(reason: String, verbose: Bool) {
-        let changed = applyFix(verbose: verbose, forceLayout: true)
+        let changed = fix(verbose: verbose, forceLayout: true)
         if !changed.isEmpty { announce(changed, reason: reason) }
         else if !verbose { log("\(reason): nothing to change") }
     }
@@ -701,7 +726,8 @@ final class Watcher: @unchecked Sendable {
 
 var args = Array(CommandLine.arguments.dropFirst())
 var mode = "watch"
-var forceReinit = false   // --reinit --force: bounce even while a Wine .exe is playing on the endpoint
+var forceReinit = false   // --reinit --force: go ahead while a Wine .exe is playing on the endpoint (one picture blink)
+var quickReinit = false   // --reinit --quick: the 3 s 6->2->6 bounce instead of settle-then-raise
 while !args.isEmpty {
     let a = args.removeFirst()
     switch a {
@@ -709,10 +735,11 @@ while !args.isEmpty {
     case "--clients": mode = "clients"
     case "--reinit": mode = "reinit"
     case "--force": forceReinit = true
+    case "--quick": quickReinit = true
     case "--bounce":
         guard !args.isEmpty else { print("usage: --bounce on|off"); exit(2) }
         let v = args.removeFirst().lowercased()
-        if v == "on" || v == "off" { setPrefsBounce(v == "on"); print("automatic channel-count bounce after link-up: \(v)"); exit(0) }
+        if v == "on" || v == "off" { setPrefsBounce(v == "on"); print("settle-then-raise after link-up: \(v)"); exit(0) }
         print("usage: --bounce on|off"); exit(2)
     case "--keepalive":
         guard !args.isEmpty else { print("usage: --keepalive on|off"); exit(2) }
@@ -757,7 +784,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit [--force] | --aggregate on|off | --keepalive on|off | --bounce on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit [--force] [--quick] | --aggregate on|off | --keepalive on|off | --bounce on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
@@ -766,16 +793,30 @@ while !args.isEmpty {
 switch mode {
 case "status": printStatus()
 case "reinit":
-    // Restart the HDMI audio stream by bouncing the channel count. On this TV a channel-count change drops the
-    // video link for ~20 s (and has caused Clamshell Sleep with the lid closed), so: never with a game running.
+    // Set the endpoint to 2 ch; after the settle delay it goes back to the target (the agent does it if it runs,
+    // otherwise this command waits). 6 -> 2 under a playing Wine game drops the HDMI link for ~1.5 s: --force.
     for d in outputDevices() where isManaged(d) {
         if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
-            if forceReinit { print("\(d.name): \(procName(pid)) is playing on it; bouncing anyway (--force)") }
-            else { print("\(d.name): \(procName(pid)) is playing on it; add --force to bounce under the game, or quit it first"); exit(1) }
+            if forceReinit { print("\(d.name): \(procName(pid)) is playing on it; going ahead (--force): expect one picture blink") }
+            else { print("\(d.name): \(procName(pid)) is playing on it; add --force (one picture blink) or quit the game first"); exit(1) }
         }
-        bounceFormat(d) { print($0) }
-        _ = applyLayout(d, verbose: false, force: true)
-        print("\(d.name): layout re-applied. The agent does this bounce by itself ~\(Int(bounceDelay)) s after every plug-in / wake (--bounce on|off).")
+        if quickReinit {
+            bounceFormat(d) { print($0) }
+            _ = applyLayout(d, verbose: false, force: true)
+            print("\(d.name): quick bounce done, layout re-applied")
+            continue
+        }
+        setChannels(d, 2) { print($0) }
+        if let pid = agentPID() {
+            print("\(d.name): held at 2 ch; the agent (pid \(pid)) raises it to \(targetChannels) ch in ~\(Int(settleDelay)) s once the TV-soundbar link has settled")
+            continue
+        }
+        print("\(d.name): waiting \(Int(settleDelay)) s for the TV-soundbar link to settle, then raising to \(targetChannels) ch")
+        sleep(UInt32(settleDelay))
+        guard let d2 = outputDevices().first(where: { $0.uid == d.uid }) else { print("\(d.name): endpoint gone"); continue }
+        setChannels(d2, targetChannels) { print($0) }
+        _ = applyLayout(d2, verbose: false, force: true)
+        print("\(d2.name): layout re-applied")
     }
 case "clients":
     for d in watched() {

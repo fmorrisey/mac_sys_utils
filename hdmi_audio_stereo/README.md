@@ -164,17 +164,21 @@ The agent therefore keeps a silent output stream running on the TV endpoint for
 as long as it is present, so the link never drops and the bar locks onto
 6-channel PCM once. `HDMI_AUDIO_STEREO_KEEPALIVE=0` or `--keepalive off` disables it.
 
-## Bounce after link-up (the fix for "rears come out of the front")
+## Settle-then-raise after link-up (the fix for "rears come out of the front")
 
-After every HDMI link-up (plug-in, TV power-cycle, Mac wake from sleep, the
-display agent's mode switch) the Samsung TV hands the Sonos a stereo stream:
-the Mac's endpoint says 6 channels and the layout is right, but the rears play
-from the bar until the TV re-negotiates its eARC output. Toggling the TV's
-digital output format did that by hand; bouncing the Mac's channel count
-(6 -> 2, hold 3 s, -> 6) does the same thing from this side (verified by ear
-2026-11-22). The agent runs the bounce ~25 s after a managed endpoint
-(re)appears, debounced per appearance, never within 90 s of its own bounce,
-never at agent startup, and never while a Wine `.exe` is playing on the
-endpoint (that would kill the game's audio; run `--reinit` after the game).
-`--bounce on|off`, `HDMI_AUDIO_STEREO_BOUNCE=0`, `HDMI_AUDIO_STEREO_BOUNCE_DELAY`.
-`--reinit` is the same bounce on demand.
+After every HDMI link-up (plug-in, TV power-cycle or hot-plug pulse, Mac wake
+from sleep) the TV endpoint comes up at 2 channels. Raising it to 6 right away,
+which this agent did at first, leaves the Sonos on a stereo stream: the TV
+latches the format it hands the soundbar while the eARC link is still coming
+up and ignores the change. The same change made once the link has settled is
+honoured (verified by ear 2026-11-22). So the agent now holds a freshly linked
+endpoint at 2 channels for a settle delay (25 s, `HDMI_AUDIO_STEREO_SETTLE`)
+and then raises it to 6 once, with the speaker assignment. Games keep playing
+through the hold (downmixed for those seconds), and a 2 -> 6 change under a
+running game does not drop the link. `--bounce on|off` switches the behaviour.
+
+`--reinit` sets the endpoint to 2 channels on demand and leaves the raise to
+the agent (or waits itself when the agent is not running). Going 6 -> 2 under
+a playing Wine game drops the HDMI link for about 1.5 s (one picture blink),
+so under a game it needs `--force`. `--reinit --quick` is the older 3-second
+6 -> 2 -> 6 bounce, proven with no game running.
