@@ -521,6 +521,7 @@ final class Watcher: @unchecked Sendable {
     var lastClientRewrite = Date.distantPast
     var startupDone = false
     var holdWork = [String: DispatchWorkItem]()
+    var deferredFor = [String: pid_t]()   // uid -> the game we are not raising under (logged once per game)
 
     func fix(verbose: Bool, forceLayout: Bool = false) -> [String] { noteHolds(); return applyFix(verbose: verbose, forceLayout: forceLayout) }
 
@@ -534,7 +535,18 @@ final class Watcher: @unchecked Sendable {
             let below = outputStreams(d).contains { st in
                 (getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())?.mChannelsPerFrame ?? targetChannels) < targetChannels
             }
-            guard below else { continue }
+            guard below else { deferredFor[d.uid] = nil; continue }
+            // Never change the format under a running Wine game: the client re-maps its channels at that moment
+            // against whatever layout the device has right then, and ends up with the centre in the sub slot
+            // (Halo, 2026-11-22 18:42). It stays at 2 ch until the game quits; a game restart picks up 6 ch.
+            if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
+                if deferredFor[d.uid] != pid {
+                    deferredFor[d.uid] = pid
+                    log("\(d.name) is at \(outputChannels(d.id)) ch with \(procName(pid)) attached; leaving it (raising under a game scrambles its channel map); raised once the game quits")
+                    notify(title: "TV audio is stereo until \(procName(pid)) restarts", body: "The TV re-linked while the game was playing; quit and relaunch it for 5.1")
+                }
+                continue
+            }
             holdUntil[d.uid] = Date().addingTimeInterval(settleDelay)
             log("\(d.name) is below \(targetChannels) ch (link just came up?); raising it in \(Int(settleDelay)) s so the TV hands the soundbar \(targetChannels) ch")
             let uid = d.uid
@@ -547,6 +559,9 @@ final class Watcher: @unchecked Sendable {
     func raise(uid: String) {
         holdUntil[uid] = nil; holdWork[uid] = nil; holdExpired[uid] = Date()
         guard let d = outputDevices().first(where: { $0.uid == uid && isManaged($0) }) else { log("raise skipped: endpoint gone"); return }
+        if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
+            log("raise skipped: \(procName(pid)) attached to \(d.name) meanwhile; raised once it quits"); deferredFor[uid] = pid; return
+        }
         let changed = fix(verbose: false, forceLayout: true)
         let ok = changed.contains(d.name) && outputChannels(d.id) == Int(targetChannels)
         log("raised after settle: \(d.name) -> \(ok ? "\(targetChannels) ch OK" : "no change (\(outputChannels(d.id)) out ch)")")
@@ -728,6 +743,7 @@ var args = Array(CommandLine.arguments.dropFirst())
 var mode = "watch"
 var forceReinit = false   // --reinit --force: go ahead while a Wine .exe is playing on the endpoint (one picture blink)
 var quickReinit = false   // --reinit --quick: the 3 s 6->2->6 bounce instead of settle-then-raise
+var wantBits: UInt32 = 0  // --bits N: re-set the physical format at N bits (same channels/rate) so attached clients re-map
 while !args.isEmpty {
     let a = args.removeFirst()
     switch a {
@@ -735,6 +751,10 @@ while !args.isEmpty {
     case "--clients": mode = "clients"
     case "--reinit": mode = "reinit"
     case "--force": forceReinit = true
+    case "--formats": mode = "formats"
+    case "--bits":
+        guard !args.isEmpty, let b = UInt32(args.removeFirst()) else { print("usage: --bits 16|20|24"); exit(2) }
+        mode = "bits"; wantBits = b
     case "--quick": quickReinit = true
     case "--bounce":
         guard !args.isEmpty else { print("usage: --bounce on|off"); exit(2) }
@@ -817,6 +837,28 @@ case "reinit":
         setChannels(d2, targetChannels) { print($0) }
         _ = applyLayout(d2, verbose: false, force: true)
         print("\(d2.name): layout re-applied")
+    }
+case "formats":
+    for d in outputDevices() where isManaged(d) {
+        for st in outputStreams(d) {
+            let cur = getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())
+            print("\(d.name) stream \(st): current \(cur.map(describe) ?? "?")")
+            let avail: [AudioStreamRangedDescription] = getArray(st, kAudioStreamPropertyAvailablePhysicalFormats)
+            for a in avail where a.mFormat.mFormatID == kAudioFormatLinearPCM { print("   \(describe(a.mFormat))") }
+        }
+    }
+case "bits":
+    for d in outputDevices() where isManaged(d) {
+        for st in outputStreams(d) {
+            guard let cur = getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
+            let avail: [AudioStreamRangedDescription] = getArray(st, kAudioStreamPropertyAvailablePhysicalFormats)
+            guard var want = avail.map({ $0.mFormat }).first(where: { $0.mFormatID == kAudioFormatLinearPCM && $0.mChannelsPerFrame == cur.mChannelsPerFrame && $0.mSampleRate == cur.mSampleRate && $0.mBitsPerChannel == wantBits }) else {
+                print("\(d.name): no \(wantBits)-bit PCM format at \(Int(cur.mChannelsPerFrame)) ch \(Int(cur.mSampleRate)) Hz"); continue
+            }
+            var a = addr(kAudioStreamPropertyPhysicalFormat)
+            let st1 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &want)
+            print("\(d.name): \(describe(cur)) -> \(describe(want)) (status \(st1))")
+        }
     }
 case "clients":
     for d in watched() {

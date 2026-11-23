@@ -182,3 +182,12 @@ the agent (or waits itself when the agent is not running). Going 6 -> 2 under
 a playing Wine game drops the HDMI link for about 1.5 s (one picture blink),
 so under a game it needs `--force`. `--reinit --quick` is the older 3-second
 6 -> 2 -> 6 bounce, proven with no game running.
+
+**Never under a running game.** A format change re-maps an attached Wine
+client's channels against whatever layout the device has at that instant,
+and the game ends up with its centre in the sub slot (Halo, 2026-11-22). So
+while a Wine `.exe` is attached, the agent leaves a freshly linked endpoint at
+2 channels (clean stereo), posts one notification, and raises it once the game
+quits; relaunching the game picks up 6 channels with the right assignment.
+`--formats` lists the endpoint's PCM formats; `--bits N` re-sets the current
+format at N bits (a client re-map nudge, untested on this TV).
