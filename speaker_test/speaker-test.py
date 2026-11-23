@@ -10,7 +10,9 @@ if a voice saying "left rear speaker" comes out of the bar, that's the finding. 
     speaker-test.py centre --repeat 3
     speaker-test.py --build                  # regenerate the files only
 
-Files are 6-channel WAVs in the order L R C LFE Ls Rs; afplay/AudioQueue routes them by the output
+Files are 6-channel WAVs in the HDMI slot order L R LFE C Ls Rs (what hdmi-audio-stereo sets on the TV);
+plain WAVs carry no channel labels, so afplay maps them by index. Found 2026-11-22: with the standard
+WAV order (C in slot 3) the centre voice came out of the subwoofer, muffled. Not routed by the output
 device's speaker labels (Audio MIDI Setup > Configure Speakers), i.e. the same path a game uses.
 Built files live in ~/Library/Caches/speaker-test/.
 """
@@ -19,7 +21,7 @@ from pathlib import Path
 
 SR, CH = 48000, 6
 CACHE = Path.home() / "Library/Caches/speaker-test"
-NAMES = {"left": (0, "front left"), "right": (1, "front right"), "centre": (2, "centre"),
+NAMES = {"left": (0, "front left"), "right": (1, "front right"), "centre": (3, "centre"),
          "leftrear": (4, "left rear"), "rightrear": (5, "right rear")}
 ORDER = ["left", "right", "centre", "sub", "leftrear", "rightrear"]
 
@@ -48,7 +50,7 @@ def silence(sec):
     return struct.pack("<" + "h" * CH, *([0] * CH)) * int(SR * sec)
 
 
-def hum(sec, c=3, hz=50):
+def hum(sec, c=2, hz=50):
     n = int(SR * sec); out = []
     for i in range(n):
         env = min(1.0, i / 4800, (n - i) / 4800)
