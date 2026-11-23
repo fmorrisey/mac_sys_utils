@@ -701,12 +701,14 @@ final class Watcher: @unchecked Sendable {
 
 var args = Array(CommandLine.arguments.dropFirst())
 var mode = "watch"
+var forceReinit = false   // --reinit --force: bounce even while a Wine .exe is playing on the endpoint
 while !args.isEmpty {
     let a = args.removeFirst()
     switch a {
     case "--status": mode = "status"
     case "--clients": mode = "clients"
     case "--reinit": mode = "reinit"
+    case "--force": forceReinit = true
     case "--bounce":
         guard !args.isEmpty else { print("usage: --bounce on|off"); exit(2) }
         let v = args.removeFirst().lowercased()
@@ -755,7 +757,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit | --aggregate on|off | --keepalive on|off | --bounce on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit [--force] | --aggregate on|off | --keepalive on|off | --bounce on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
@@ -768,7 +770,8 @@ case "reinit":
     // video link for ~20 s (and has caused Clamshell Sleep with the lid closed), so: never with a game running.
     for d in outputDevices() where isManaged(d) {
         if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
-            print("\(d.name): \(procName(pid)) is playing on it; quit the game first (a re-init kills its audio)"); exit(1)
+            if forceReinit { print("\(d.name): \(procName(pid)) is playing on it; bouncing anyway (--force)") }
+            else { print("\(d.name): \(procName(pid)) is playing on it; add --force to bounce under the game, or quit it first"); exit(1) }
         }
         bounceFormat(d) { print($0) }
         _ = applyLayout(d, verbose: false, force: true)
