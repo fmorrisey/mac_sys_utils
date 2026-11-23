@@ -278,7 +278,7 @@ func applyFix(verbose: Bool, forceLayout: Bool = false) -> [String] {
 func printStatus() {
     let def = defaultOutput()
     let src = prefsTarget() != nil ? "runtime override via --target" : "plist/env default"
-    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled), keep-alive=\(keepaliveEnabled ? "on" : "off"))")
+    print("target: \(targetChannels) ch [\(src)] on " + (onlyDevices.isEmpty ? "every HDMI / DisplayPort output" : onlyDevices.joined(separator: ", ")) + "  (notify=\(notifyEnabled), keep-alive=\(keepaliveEnabled ? "on" : "off"), bounce-after-link-up=\(bounceEnabled ? "on" : "off"))")
     for d in outputDevices() {
         let flag = d.id == def ? "*" : " "
         let managed = isManaged(d) ? (d.channels != Int(targetChannels) ? "WOULD FIX" : "managed, ok") : (isAggregate(d) ? "stable output (aggregate around the TV)" : "ignored")
@@ -426,6 +426,42 @@ func pruneKeepalive(present: Set<AudioObjectID>) {
     }
 }
 
+// MARK: - channel-count bounce after a link-up
+// After every HDMI link-up (plug-in, TV power-cycle, Mac wake) the Samsung TV hands the Sonos a stereo stream
+// (rears fold into the bar) until something makes it re-negotiate. Verified by ear 2026-11-22 17:14: bouncing the
+// Mac's channel count 6 -> 2 -> 6 once the link has settled brings the rears back; before that every link-up
+// needed a toggle on the TV. The agent does this automatically ~25 s after a managed endpoint (re)appears.
+func prefsBounce() -> Bool? {
+    guard let v = CFPreferencesCopyAppValue("bounce" as CFString, prefsDomain) else { return nil }
+    return (v as? Bool) ?? ((v as? NSNumber)?.boolValue)
+}
+var bounceEnabled: Bool { prefsBounce() ?? ((env["HDMI_AUDIO_STEREO_BOUNCE"] ?? "1") != "0") }
+func setPrefsBounce(_ on: Bool?) {
+    CFPreferencesSetAppValue("bounce" as CFString, on.map { $0 as CFBoolean }, prefsDomain)
+    CFPreferencesAppSynchronize(prefsDomain)
+}
+let bounceDelay: TimeInterval = Double(env["HDMI_AUDIO_STEREO_BOUNCE_DELAY"] ?? "") ?? 25   // after the last (re)appearance
+let bounceCooldown: TimeInterval = 90   // the bounce itself resets the endpoint; never chain bounces
+/// Sets the stream to the other channel count, holds 3 s, then sets the target count. Returns true if both writes succeeded.
+@discardableResult
+func bounceFormat(_ d: Dev, out: (String) -> Void) -> Bool {
+    var ok = false
+    for st in outputStreams(d) {
+        guard let cur = getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
+        let other: UInt32 = cur.mChannelsPerFrame == 2 ? targetChannels : 2
+        guard var tmp = stereoCandidate(for: st, current: cur, channels: other) else { out("\(d.name): no \(other)-ch format to bounce through"); continue }
+        var a = addr(kAudioStreamPropertyPhysicalFormat)
+        let s1 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &tmp)
+        out("\(d.name): \(describe(cur)) -> \(describe(tmp)) (status \(s1)); holding 3 s, then back")
+        sleep(3)
+        var back = stereoCandidate(for: st, current: cur, channels: targetChannels) ?? cur
+        let s2 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &back)
+        out("\(d.name): -> \(describe(back)) (status \(s2))")
+        if s1 == noErr && s2 == noErr { ok = true }
+    }
+    return ok
+}
+
 // MARK: - audio clients (macOS 14+ process objects)
 // A Wine game that opens its stream after the TV has settled still plays with crossed channels until the
 // preferred layout is written again (seen with Halo 2026-11-13/14 and Skyrim 2026-11-14). So: watch which
@@ -468,6 +504,36 @@ final class Watcher: @unchecked Sendable {
     var pendingRestoreSystem = false
     var lastClients = [AudioObjectID: Set<pid_t>]()
     var lastClientRewrite = Date.distantPast
+    var startupDone = false
+    var bounceWork: DispatchWorkItem?
+    var lastBounce = Date.distantPast
+
+    /// A managed endpoint got a new object id: the HDMI link came up (plug-in, TV power-cycle, Mac wake, or the
+    /// display agent's mode switch). Bounce the channel count once the link has settled; debounced per appearance.
+    func armBounce(_ d: Dev) {
+        guard bounceEnabled, startupDone else { return }
+        guard Date().timeIntervalSince(lastBounce) > bounceCooldown else { return }   // that was our own bounce resetting the endpoint
+        bounceWork?.cancel()
+        let uid = d.uid
+        let w = DispatchWorkItem { [self] in runBounce(uid: uid) }
+        bounceWork = w
+        log("\(d.name) (re)appeared; channel-count bounce in \(Int(bounceDelay)) s so the TV hands the soundbar 5.1")
+        q.asyncAfter(deadline: .now() + bounceDelay, execute: w)
+    }
+
+    func runBounce(uid: String) {
+        bounceWork = nil
+        guard let d = outputDevices().first(where: { $0.uid == uid && isManaged($0) }) else { log("bounce skipped: endpoint gone"); return }
+        if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
+            log("bounce skipped: \(procName(pid)) is playing on \(d.name) (a bounce would kill its audio); run --reinit after the game")
+            return
+        }
+        lastBounce = Date()
+        let ok = bounceFormat(d) { log($0) }
+        _ = applyLayout(d, verbose: false, force: true)
+        log("bounce done on \(d.name): \(ok ? "OK" : "a write failed")")
+        if ok { notify(title: "HDMI audio re-synced", body: "\(d.name): channel count bounced so the soundbar locks onto 5.1") }
+    }
 
     /// Every few seconds: did a new process start producing output on a managed device? Then the
     /// layout gets written again so that client maps its channels onto the right speakers.
@@ -552,6 +618,7 @@ final class Watcher: @unchecked Sendable {
             onDefaultOutputChanged(); schedule("default output changed")
         }
         hookDevices()
+        startupDone = true   // endpoints present at startup are not "appearances": an agent restart must not bounce
         // belt and braces: a quiet periodic re-check in case a notification is missed
         let t = DispatchSource.makeTimerSource(queue: q)
         t.schedule(deadline: .now() + recheckSeconds, repeating: recheckSeconds)
@@ -589,6 +656,7 @@ final class Watcher: @unchecked Sendable {
         for d in devs where isManaged(d) {
             if !hooked.contains(d.id) {
                 hooked.insert(d.id)
+                armBounce(d)
                 listen(d.id, kAudioDevicePropertyStreamConfiguration, kAudioObjectPropertyScopeOutput, "\(d.name) stream configuration changed")
                 listen(d.id, kAudioDevicePropertyDeviceIsRunning, kAudioObjectPropertyScopeGlobal, "\(d.name) IO started/stopped")
             }
@@ -639,6 +707,11 @@ while !args.isEmpty {
     case "--status": mode = "status"
     case "--clients": mode = "clients"
     case "--reinit": mode = "reinit"
+    case "--bounce":
+        guard !args.isEmpty else { print("usage: --bounce on|off"); exit(2) }
+        let v = args.removeFirst().lowercased()
+        if v == "on" || v == "off" { setPrefsBounce(v == "on"); print("automatic channel-count bounce after link-up: \(v)"); exit(0) }
+        print("usage: --bounce on|off"); exit(2)
     case "--keepalive":
         guard !args.isEmpty else { print("usage: --keepalive on|off"); exit(2) }
         let v = args.removeFirst().lowercased()
@@ -682,7 +755,7 @@ while !args.isEmpty {
         guard !args.isEmpty else { print("--device needs a name"); exit(2) }
         onlyDevices.append(args.removeFirst())
     case "-h", "--help":
-        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit | --aggregate on|off | --keepalive on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
+        print("usage: hdmi-audio-stereo [--status | --clients | --once | --reinit | --aggregate on|off | --keepalive on|off | --bounce on|off | --aggregate-layout L,L,..|default | --target N|default | --layout L,L,..|default | --save-layout] [--channels N] [--device NAME ...]"); exit(0)
     default:
         print("unknown option \(a)"); exit(2)
     }
@@ -697,18 +770,9 @@ case "reinit":
         if let pid = runningOutputPIDs(on: d.id).first(where: { procName($0).lowercased().hasSuffix(".exe") }) {
             print("\(d.name): \(procName(pid)) is playing on it; quit the game first (a re-init kills its audio)"); exit(1)
         }
-        for st in outputStreams(d) {
-            guard let cur = getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription()) else { continue }
-            let other: UInt32 = cur.mChannelsPerFrame == 2 ? targetChannels : 2
-            guard var tmp = stereoCandidate(for: st, current: cur, channels: other) else { print("\(d.name): no \(other)-ch format to bounce through"); continue }
-            var a = addr(kAudioStreamPropertyPhysicalFormat)
-            let s1 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &tmp)
-            print("\(d.name): \(describe(cur)) -> \(describe(tmp)) (status \(s1)); waiting 3 s, then back")
-            sleep(3)
-            var back = cur
-            let s2 = AudioObjectSetPropertyData(st, &a, 0, nil, UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &back)
-            print("\(d.name): -> \(describe(cur)) (status \(s2)). Expect the TV picture to drop for up to 20 s; the agent re-applies the layout when the endpoint returns.")
-        }
+        bounceFormat(d) { print($0) }
+        _ = applyLayout(d, verbose: false, force: true)
+        print("\(d.name): layout re-applied. The agent does this bounce by itself ~\(Int(bounceDelay)) s after every plug-in / wake (--bounce on|off).")
     }
 case "clients":
     for d in watched() {

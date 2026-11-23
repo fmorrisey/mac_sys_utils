@@ -163,3 +163,18 @@ bar) until someone toggles the TV's digital output format or power-cycles it.
 The agent therefore keeps a silent output stream running on the TV endpoint for
 as long as it is present, so the link never drops and the bar locks onto
 6-channel PCM once. `HDMI_AUDIO_STEREO_KEEPALIVE=0` or `--keepalive off` disables it.
+
+## Bounce after link-up (the fix for "rears come out of the front")
+
+After every HDMI link-up (plug-in, TV power-cycle, Mac wake from sleep, the
+display agent's mode switch) the Samsung TV hands the Sonos a stereo stream:
+the Mac's endpoint says 6 channels and the layout is right, but the rears play
+from the bar until the TV re-negotiates its eARC output. Toggling the TV's
+digital output format did that by hand; bouncing the Mac's channel count
+(6 -> 2, hold 3 s, -> 6) does the same thing from this side (verified by ear
+2026-11-22). The agent runs the bounce ~25 s after a managed endpoint
+(re)appears, debounced per appearance, never within 90 s of its own bounce,
+never at agent startup, and never while a Wine `.exe` is playing on the
+endpoint (that would kill the game's audio; run `--reinit` after the game).
+`--bounce on|off`, `HDMI_AUDIO_STEREO_BOUNCE=0`, `HDMI_AUDIO_STEREO_BOUNCE_DELAY`.
+`--reinit` is the same bounce on demand.
