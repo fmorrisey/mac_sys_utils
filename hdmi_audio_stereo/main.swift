@@ -532,8 +532,11 @@ final class Watcher: @unchecked Sendable {
         for d in outputDevices() where isManaged(d) {
             if holdUntil[d.uid] != nil { continue }
             if let e = holdExpired[d.uid], Date().timeIntervalSince(e) < 60 { continue }
-            let below = outputStreams(d).contains { st in
-                (getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())?.mChannelsPerFrame ?? targetChannels) < targetChannels
+            // A freshly (re)enumerated endpoint can report no streams yet (18:54:25: the raise went through at once,
+            // 3 s after link-up, because the stream list was empty); the device's own channel count is the fallback.
+            let streams = outputStreams(d)
+            let below = (d.channels > 0 && d.channels < Int(targetChannels)) || streams.isEmpty || streams.contains { st in
+                (getValue(st, kAudioStreamPropertyPhysicalFormat, kAudioObjectPropertyScopeGlobal, AudioStreamBasicDescription())?.mChannelsPerFrame ?? 0) < targetChannels
             }
             guard below else { deferredFor[d.uid] = nil; continue }
             // Never change the format under a running Wine game: the client re-maps its channels at that moment
